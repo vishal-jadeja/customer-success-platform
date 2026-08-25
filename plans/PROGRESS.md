@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 05 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 06 (AI pipeline).**
+**Current phase:** 06 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 07 (Dashboard + cache).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -76,17 +76,19 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `app/api/v1/routers/interactions.py` — flat CRUD (`router`) + nested `customer_router` (`/customers/{id}/interactions`), both wired into `main.py`; no SQLAlchemy in the router
 - [x] Access to interaction inherits customer scope for view/create; update/delete follow the separate author/role rule per the RBAC matrix (not customer ownership)
 - [x] **Test:** `test_interactions.py` (9 tests: create on owned/non-owned, notes<20 chars→422, nested list scoped + 403, type/date-range filters, manager-deletes/csm-403, author-update-rule, manager-can-update-any). 36/36 backend tests pass; `ruff check .` clean; layering gate empty. Verified live against seeded dev DB (create→pending insight, nested list count, csm-delete-403, manager-delete-204).
+  - *(Phase 06 note: the "pending insight" test above was renamed to `test_csm_creates_on_owned_customer_insight_row_exists` and now runs with `AI_ENABLED=False` monkeypatched, since Phase 06 made generation run inline before the response returns — the row is no longer observably `pending` from the API by the time the client sees it.)*
 
 ## Phase 06 — AI pipeline
-- [ ] `app/schemas/insight.py` — `InsightPayload`, read schema
-- [ ] `app/llm/base.py` — `LLMProvider` protocol, `LLMResult`
-- [ ] `app/llm/groq.py`, `app/llm/cerebras.py` (per-provider 15s timeout)
-- [ ] `app/llm/client.py` — `FailoverLLMClient`, skips providers with empty key, overall `LLM_TOTAL_BUDGET_SECONDS` deadline (repair only if ≥8 s left), parse chain, repair call
-- [ ] `app/llm/prompts.py` — system + user templates
-- [ ] `app/services/insight_service.py` — **update the existing pending row** (not create); regenerate resets to pending
-- [ ] Wire into `POST /interactions` (row already committed in Phase 05; generate after)
-- [ ] `/interactions/{id}/insight/regenerate`
-- [ ] Forced failure → status=failed (row exists, not null), 201 not 5xx
+- [x] `app/schemas/insight.py` — `InsightPayload` (sentiment normalized to positive/neutral/negative, unknown→neutral), full `InsightOut`
+- [x] `app/llm/base.py` — `LLMProvider` protocol, `LLMResult`, `OpenAICompatibleProvider` (shared httpx call shape), typed errors (`LLMTimeoutError`/`LLMHTTPError`/`LLMAuthError`)
+- [x] `app/llm/groq.py`, `app/llm/cerebras.py` — thin subclasses (base_url + name only); per-call timeout passed explicitly
+- [x] `app/llm/client.py` — `FailoverLLMClient`: skips providers with empty key (never constructed), overall `LLM_TOTAL_BUDGET_SECONDS` deadline shared across every call incl. repairs, repair only if ≥8s remain, parse chain (`json.loads` → fenced extract → repair → next provider)
+- [x] `app/llm/prompts.py` — system + user templates, notes truncated to 8000 chars
+- [x] `app/services/insight_service.py` — **updates the existing pending row** (never creates one); `AI_ENABLED=false` → failed/"AI disabled"; regenerate resets to pending then re-runs generate
+- [x] Wired into `interaction_service.create_interaction`: interaction+pending row already committed (Phase 05), generation runs after in a try/except that can never propagate to a 5xx
+- [x] `POST /interactions/{id}/insight/regenerate` — same access rule as create/view (customer-scoped), not the author rule
+- [x] Forced failure (real network call w/ invalid dummy keys, both providers) → status=failed (row exists, not null), 201 not 5xx — verified live
+- [x] **Test:** `test_ai.py` (4 tests, provider boundary monkeypatched, no real HTTP call: Groq-fails→Cerebras-succeeds incl. sentiment case-normalization, both-fail→201/failed, unrecoverable-malformed-JSON→failed not 500, regenerate flips failed→completed). 40/40 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified end-to-end against real Groq/Cerebras with intentionally-invalid dummy keys: 201, `insight.status=failed`, `error_message` set, `attempts` increments across regenerate calls, never a 500.
 - [ ] **Test:** failover Groq→Cerebras + malformed-JSON repair → failed, no 500 (`test_ai.py`)
 
 ## Phase 07 — Dashboard + cache

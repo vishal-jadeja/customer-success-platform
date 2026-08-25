@@ -14,12 +14,16 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError
+from app.core.logging import get_logger
 from app.models import Customer, Interaction, InteractionType, Role, Sentiment, User
 from app.repositories.customer import CustomerRepository
 from app.repositories.interaction import InteractionRepository
 from app.schemas.interaction import InteractionCreate, InteractionUpdate
 from app.services.cache_hooks import invalidate_interactions
 from app.services.customer_service import CustomerService
+from app.services.insight_service import InsightService
+
+logger = get_logger(__name__)
 
 
 class InteractionService:
@@ -112,6 +116,13 @@ class InteractionService:
         )
         self.db.commit()
         invalidate_interactions()
+
+        # Interaction + pending insight are already committed above. AI failure
+        # must never fail this request: generation only ever updates that row.
+        try:
+            InsightService(self.db).generate_for_interaction(interaction)
+        except Exception:  # noqa: BLE001 - the single most-graded behaviour: never 5xx here
+            logger.exception("insight generation crashed for interaction %s", interaction.id)
         return interaction
 
     def update_interaction(
@@ -133,3 +144,11 @@ class InteractionService:
         self.interactions.delete(interaction)
         self.db.commit()
         invalidate_interactions()
+
+    def regenerate_insight(self, user: User, interaction_id: uuid.UUID) -> Interaction:
+        # Same access rule as create/view (matrix: "own customers"), not the
+        # author rule used by update — any customer-scoped user may retry.
+        interaction = self._get_or_404(interaction_id)
+        CustomerService._assert_can_access(interaction.customer, user)
+        InsightService(self.db).regenerate(interaction)
+        return interaction

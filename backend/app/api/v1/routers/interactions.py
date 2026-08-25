@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.core.deps import CurrentUser, DbSession, require_roles
 from app.models import InteractionType, Role, Sentiment, User
 from app.schemas.common import Page, PageParams
+from app.schemas.insight import InsightOut
 from app.schemas.interaction import InteractionCreate, InteractionOut, InteractionUpdate
 from app.services.interaction_service import InteractionService
 
@@ -83,6 +84,12 @@ def delete_interaction(
     interaction_id: uuid.UUID, _: AdminOrManager, user: CurrentUser, db: DbSession
 ) -> None:
     InteractionService(db).delete_interaction(user, interaction_id)
+
+
+@router.post("/{interaction_id}/insight/regenerate", response_model=InsightOut)
+def regenerate_insight(interaction_id: uuid.UUID, user: CurrentUser, db: DbSession) -> InsightOut:
+    interaction = InteractionService(db).regenerate_insight(user, interaction_id)
+    return InsightOut.model_validate(interaction.insight)
 
 
 @customer_router.get("/{customer_id}/interactions", response_model=Page[InteractionOut])

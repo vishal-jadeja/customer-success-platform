@@ -1,21 +1,32 @@
 """Phase 05: interaction CRUD, scope inherited from the parent customer,
-pending-insight-row-on-create, author-vs-role update/delete rules.
+insight-row-committed-on-create, author-vs-role update/delete rules.
+
+The insight row is committed as ``pending`` alongside the interaction in the
+same transaction (Phase 05) and then, as of Phase 06, generation runs inline
+before the response is returned — so by the time the client sees it, status
+has already advanced to ``completed``/``failed``. That inline generation is
+exercised in ``test_ai.py``; here AI is turned off so this stays a Phase-05-
+scoped test with no real network call.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models import Customer, User
 from tests.conftest import auth_headers, make_interaction
 
 
-def test_csm_creates_on_owned_customer_pending_insight_committed(
-    client: TestClient, csm: User, customer_of_csm: Customer
+def test_csm_creates_on_owned_customer_insight_row_exists(
+    client: TestClient, csm: User, customer_of_csm: Customer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(get_settings(), "AI_ENABLED", False)
+
     resp = client.post(
         "/api/v1/interactions",
         headers=auth_headers(csm),
@@ -29,8 +40,9 @@ def test_csm_creates_on_owned_customer_pending_insight_committed(
     )
     assert resp.status_code == 201
     body = resp.json()
-    assert body["insight"]["status"] == "pending"
-    assert body["insight"]["error_message"] is None
+    # The row exists (not null) — it just never got a chance to run with AI off.
+    assert body["insight"]["status"] == "failed"
+    assert body["insight"]["error_message"] == "AI disabled"
 
 
 def test_csm_create_on_non_owned_customer_forbidden(
