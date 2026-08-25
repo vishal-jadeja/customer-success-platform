@@ -39,7 +39,7 @@ from app.core import redis as redis_module  # noqa: E402
 from app.core.deps import get_db  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Role, User  # noqa: E402
+from app.models import Customer, Role, User  # noqa: E402
 
 
 def _ensure_test_database(url: str) -> None:
@@ -152,6 +152,36 @@ def csm(db: Session) -> User:
 @pytest.fixture
 def csm2(db: Session) -> User:
     return _make_user(db, "csm2@csptest.example.com", Role.csm)
+
+
+_customer_seq = 0
+
+
+def make_customer(db: Session, owner: User, **overrides: object) -> Customer:
+    global _customer_seq
+    _customer_seq += 1
+    defaults: dict[str, object] = {
+        "name": f"Customer {_customer_seq}",
+        "company": f"Company {_customer_seq}",
+        "email": f"cust{_customer_seq}@csptest.example.com",
+        "owner_id": owner.id,
+    }
+    defaults.update(overrides)
+    customer = Customer(**defaults)
+    db.add(customer)
+    db.flush()
+    db.commit()
+    return customer
+
+
+@pytest.fixture
+def customer_of_csm(db: Session, csm: User) -> Customer:
+    return make_customer(db, csm)
+
+
+@pytest.fixture
+def customer_of_csm2(db: Session, csm2: User) -> Customer:
+    return make_customer(db, csm2)
 
 
 def token_for(user: User) -> str:

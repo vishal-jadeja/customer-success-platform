@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 03 — code + tests done and committed (`85800d2`, pushed to origin); deploy in progress (Render+Neon+Upstash+Vercel, driven from dashboards) → then 04
+**Current phase:** 04 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 05 (Interactions).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -53,18 +53,20 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Test:** reuse of revoked refresh token → family revoked, 401 (`test_auth.py`) — plus `test_users.py` for `/users` RBAC. 13/13 pass.
 - [x] **Senior review pass (post-03):** 500 envelope now carries request id (header + body + log line); CORS-empty warning moved to a model validator; `/auth/refresh` takes a `FOR UPDATE` row lock; seed CSM password ≥8 chars; `next.config.ts` throws if `BACKEND_URL` unset at build; master plan login limit aligned to 10/min. 14/14 pass.
 - [x] Minimal Next.js skeleton (`frontend/`) — proxy rewrite (`next.config.ts`), login→`/auth/me` page; build+eslint+tsc clean; proxy round-trip verified locally (cookie lands on the frontend origin, not the backend's)
-- [ ] **Deploy:** skeleton backend on Render (native Python runtime) + Neon + Upstash; `/healthz` green on Render URL — **blocked on dashboard access, see notes below**
-- [ ] **Deploy:** minimal Next.js on Vercel with `next.config.ts` proxy rewrite + `BACKEND_URL` — **blocked on dashboard access**
-- [ ] **Deploy:** one login round-trip verified against the deployed URLs (first-party cookie) — **blocked on dashboard access**
+- [x] **Deploy:** backend on Render + Neon + Upstash; `/healthz` green → `{"status":"ok","db":"ok","redis":"ok"}` at https://customer-success-platform-c2u0.onrender.com/healthz
+- [x] **Deploy:** Next.js on Vercel with `next.config.ts` proxy rewrite + `BACKEND_URL` at https://customer-success-platform-murex.vercel.app (see Vercel notes below)
+- [x] **Deploy:** login round-trip verified against deployed URLs — first-party cookie `refresh_token; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth`, no Domain, set on the Vercel host; proxy `/api/v1/auth/me` returns backend envelope. Prod DB seeded (6 users).
 
 ## Phase 04 — Customers
-- [ ] `app/schemas/customer.py` — create/update/read/list
-- [ ] `app/repositories/customer.py` — `apply_customer_scope` (owner_id==self), list/get/create/update/delete; catch `IntegrityError`→ConflictError (no pre-check)
-- [ ] `app/services/customer_service.py` — `_assert_can_access` (own = owner_id==self)
-- [ ] `app/api/v1/routers/customers.py` — CRUD (no assignee endpoints)
-- [ ] Filters (q, status, owner_id, industry, health range), sort, pagination
-- [ ] CSM blocked from non-owned customer → 403; CSM supplying `owner_id` ≠ self → 403 (service); duplicate email → 409 (from IntegrityError)
-- [ ] **Test:** csm cannot read another csm's customer (`test_rbac.py`)
+- [x] `app/schemas/customer.py` — create/update/list-item/out; `app/schemas/common.py` gains `PageParams`
+- [x] `app/repositories/customer.py` — `apply_customer_scope` (owner_id==self), list/get/count_interactions/create/update/delete; unique-email `IntegrityError` propagates to the existing global 409 handler (no pre-check) — matches the Phase 03 `UserRepository` pattern, not a repo-level catch
+- [x] `app/services/customer_service.py` — `_assert_can_access` (own = owner_id==self), `_resolve_owner_id` (csm forced-self/403 on other; admin/manager free, validated via `UserRepository`)
+- [x] `app/services/cache_hooks.py` — `invalidate_customers()` no-op stub (Phase 07 wires it)
+- [x] `app/api/v1/routers/customers.py` — CRUD (no assignee endpoints); nested `/customers/{id}/interactions` deferred to Phase 05
+- [x] Filters (q, status, owner_id, industry, min/max health), sort (whitelist dict, never f-string), pagination
+- [x] CSM blocked from non-owned customer → 403; CSM supplying `owner_id` ≠ self → 403 (service); duplicate email → 409 (from IntegrityError)
+- [x] **Test:** `test_rbac.py` (8 tests: csm read own/other, manager reads any, admin-vs-csm list counts, csm/admin delete, csm create with/without owner_id, csm/manager reassign owner) + `test_customers.py` (5 tests: dup-email create/update 409, pagination envelope across pages, q/status/health filters, invalid sort → 422). 27/27 backend tests pass (`pytest`); `ruff check .` clean; layering gate (`grep -rE "select\(|db\.query|session\.execute" app/api/`) empty. Verified live against seeded dev DB via curl (scoped list, 403, 422, 409, delete-403) — see chat log.
+- [x] Found+fixed during implementation: `PageParams` as a `@dataclass` sub-dependency broke under this file's `from __future__ import annotations` (FastAPI double-wrapped the still-string annotation); switched to a plain class with `Query(default, ...)`-style defaults on `__init__`.
 
 ## Phase 05 — Interactions
 - [ ] `app/schemas/interaction.py` + minimal `schemas/insight.py` `InsightOut` (id, status, error_message)
@@ -149,6 +151,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] Record + link video
 
 ---
+
+## Deploy resolved (Phase 03) — notes for Phase 12 re-deploy
+- **Live URLs:** backend `https://customer-success-platform-c2u0.onrender.com`, frontend `https://customer-success-platform-murex.vercel.app`.
+- **Vercel + Next 16 gotcha:** Next 16.3.x Turbopack build omits `next-server.js.nft.json` → Vercel `onBuildComplete` ENOENT. Fix: `"build": "next build --webpack"` in `frontend/package.json`. Separately, the first Vercel project got stuck in a broken edge-routing state (build Ready but 404 on every route, even fresh deployments); **deleting and recreating the Vercel project fixed it**. Re-add env vars on any recreate — frontend needs only `BACKEND_URL` (server-side).
+- **Prod seed:** run locally against Neon with the venv python (3.13): `DATABASE_URL=<neon> REDIS_URL=<upstash> JWT_SECRET=<secret> ENV=prod .venv/Scripts/python.exe scripts/seed.py`. Idempotent.
+- **Secrets exposed in chat during setup** — rotate before any real use: Neon password, Upstash token, `JWT_SECRET`.
 
 ## Blocked / notes
 - **Phase 03 deploy (Render + Neon + Upstash + Vercel) is code-complete but not executed.** No `vercel`/`render` CLI here and I can't create third-party accounts. Runbook (drive from your dashboards, paste only the resulting URLs back, never secrets):
