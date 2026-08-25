@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.api.v1.routers import auth, customers, interactions, users
+from app.api.v1.routers import auth, customers, dashboard, interactions, users
 from app.core.config import get_settings
 from app.core.errors import envelope, register_error_handlers
 from app.core.logging import configure_logging, get_logger
@@ -53,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(customers.router, prefix="/api/v1")
     app.include_router(interactions.router, prefix="/api/v1")
     app.include_router(interactions.customer_router, prefix="/api/v1")
+    app.include_router(dashboard.router, prefix="/api/v1")
 
     @app.get("/healthz")
     def healthz(_: Request) -> JSONResponse:

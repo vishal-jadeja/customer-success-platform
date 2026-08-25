@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 06 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 07 (Dashboard + cache).**
+**Current phase:** 07 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 08 (Frontend foundation).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -89,16 +89,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `POST /interactions/{id}/insight/regenerate` — same access rule as create/view (customer-scoped), not the author rule
 - [x] Forced failure (real network call w/ invalid dummy keys, both providers) → status=failed (row exists, not null), 201 not 5xx — verified live
 - [x] **Test:** `test_ai.py` (4 tests, provider boundary monkeypatched, no real HTTP call: Groq-fails→Cerebras-succeeds incl. sentiment case-normalization, both-fail→201/failed, unrecoverable-malformed-JSON→failed not 500, regenerate flips failed→completed). 40/40 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified end-to-end against real Groq/Cerebras with intentionally-invalid dummy keys: 201, `insight.status=failed`, `error_message` set, `attempts` increments across regenerate calls, never a 500.
-- [ ] **Test:** failover Groq→Cerebras + malformed-JSON repair → failed, no 500 (`test_ai.py`)
 
 ## Phase 07 — Dashboard + cache
-- [ ] `app/core/cache.py` — versioned key build, get/set-json, invalidate (namespace-global), fail-open
-- [ ] `app/repositories/dashboard.py` — summary/trend/at-risk queries (scoped)
-- [ ] `app/services/dashboard_service.py` — cache orchestration
-- [ ] `app/api/v1/routers/dashboard.py`
-- [ ] Wire cache invalidation into customer/interaction/insight writes
-- [ ] Decimal/UUID/datetime JSON serialization for cache
-- [ ] **Test:** cache miss→hit; write bumps version→next read misses (`test_cache.py`)
+- [x] `app/core/cache.py` — versioned key build (`scope_for`/`build_key`), `get_json`/`set_json` (custom encoder: Decimal→str, UUID→str, datetime/date→isoformat), `invalidate` (namespace-global INCR), fail-open via the existing Phase 03 `safe_*` wrappers
+- [x] `app/repositories/dashboard.py` — `summary`/`sentiment_trend`/`at_risk`, all built on `apply_customer_scope` (Phase 04, reused directly — no reimplementation)
+- [x] `app/services/dashboard_service.py` — cache-or-query orchestration, TTLs 120s/300s/120s
+- [x] `app/api/v1/routers/dashboard.py` — `/summary`, `/sentiment-trend`, `/at-risk`, all `CurrentUser`-scoped (no role gate — scoping not role-gating, per the RBAC matrix)
+- [x] Wired cache invalidation into customer/interaction/insight writes — `services/cache_hooks.py` stubs replaced with real `invalidate("customers"/"interactions"/"dashboard")`; zero changes needed to `customer_service.py`/`interaction_service.py`/`insight_service.py` since they already called the stub functions at every write site since Phase 04–06
+- [x] Decimal/UUID/datetime JSON serialization for cache — custom `_CacheEncoder`, tested directly
+- [x] **Found+fixed during implementation:** the version-key default-on-miss was originally `1` (matching what a first `INCR` on a missing key produces) — but that meant the *first-ever* `invalidate()` on a namespace nobody had read yet landed on the same version number a fresh read had already assumed, so the key didn't change and the cache silently kept serving pre-write data. Fixed by defaulting the miss-case to `0` instead (a real test caught this: `test_customer_write_invalidates_dashboard_cache` failed before the fix).
+- [x] **Test:** `test_cache.py` (8 tests: encoder round-trip, version-bump changes the key, scope is in the key, cache-hit avoids a second repo call, customer-write invalidates the dashboard cache with fresh numbers, csm-scoped vs admin-global, Redis-down still 200, at-risk ordering). 48/48 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified: miss→hit, write→fresh MISS (16→17 customers), admin(17) vs csm1(5) scope isolation, at-risk ascending health, sentiment-trend grouped by day, `docker compose stop redis` → dashboard still 200 with correct data.
 
 ## Phase 08 — Frontend foundation
 - [ ] `create-next-app` (App Router, TS, Tailwind); confirm `next.config.js` rewrite + `output:'standalone'`
