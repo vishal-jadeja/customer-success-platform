@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 07 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 08 (Frontend foundation).**
+**Current phase:** 08 — DONE (code + `next build` + full manual e2e via browser automation, all verified locally; not yet redeployed to Vercel — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 09 (Frontend customers + interactions).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -101,15 +101,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Test:** `test_cache.py` (8 tests: encoder round-trip, version-bump changes the key, scope is in the key, cache-hit avoids a second repo call, customer-write invalidates the dashboard cache with fresh numbers, csm-scoped vs admin-global, Redis-down still 200, at-risk ordering). 48/48 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified: miss→hit, write→fresh MISS (16→17 customers), admin(17) vs csm1(5) scope isolation, at-risk ascending health, sentiment-trend grouped by day, `docker compose stop redis` → dashboard still 200 with correct data.
 
 ## Phase 08 — Frontend foundation
-- [ ] `create-next-app` (App Router, TS, Tailwind); confirm `next.config.js` rewrite + `output:'standalone'`
-- [ ] `lib/axios.ts` — **baseURL='/api/v1' (relative), no withCredentials**, 15s global timeout, 45s override on create/regenerate, 60s on the mount-time refresh; interceptors + refresh-on-401 single-flight
-- [ ] `store/` — configureStore, typed hooks, auth slice
-- [ ] `store/slices/` skeletons with entities/ids + status/error
-- [ ] Login + register pages (react-hook-form + zod)
-- [ ] `components/AuthGuard` + silent refresh on mount + "Waking up the server…" banner after 3 s
-- [ ] `app/(app)/profile/page.tsx` — view + edit name / change password (`PATCH /auth/me`)
-- [ ] App shell / nav with role-aware links (Profile; Users only if Phase 10 optional page ships)
-- [ ] Login persists across refresh via silent refresh
+- [x] `next.config.ts` rewrite + `output:'standalone'` gate carried from Phase 03 skeleton, untouched
+- [x] `lib/axios.ts` — **baseURL='/api/v1' (relative), no withCredentials**, 15s global timeout (45s/60s overrides are plain per-call config, no special plumbing needed); request interceptor injects the in-memory token; response interceptor does single-flight refresh-on-401 via a dynamic `import("@/store")` (breaks the axios↔store circular import cleanly)
+- [x] `store/` — `configureStore`, typed `useAppDispatch`/`useAppSelector`, `authSlice`
+- [x] `authSlice`: `login`/`register`(→login, since the backend doesn't auto-login)/`refreshToken`/`fetchMe`/`updateMe`/`logout`, all funneled through `lib/errors.ts::extractApiError` so `action.payload` is always `{code,message}`
+- [x] Login + register pages (react-hook-form + zod, `schemas/auth.ts` mirrors backend `LoginIn`/`RegisterIn`/`MeUpdateIn` incl. the password-pair validator)
+- [x] `components/AuthGuard` — silent refresh on mount, `REFRESH_RACE` retried once after ~300ms, `WakingBanner` after 3s
+- [x] `app/(app)/profile/page.tsx` — view email/role, edit full_name + optional password change; wrong current_password routes to that field from the 401 envelope
+- [x] `components/AppShell` — Profile + Logout only this phase (Customers/Interactions/Dashboard pages don't exist until Phase 09/10; linking to them now would be exactly the dead link the plan warns against for the optional Users page)
+- [x] Login persists across hard refresh via silent refresh — live-verified via browser automation
+- [x] **Verification:** `next build` clean (5 routes generated); `tsc --noEmit` clean; full manual e2e via Chrome automation — register→auto-login→landed on `/`, no app token in localStorage/sessionStorage, hard reload still authenticated with exactly one `/auth/refresh` call (network-tab confirmed), profile name-change updates the header instantly with no reload, wrong current_password → inline field error not a crash, wrong login password → inline error, logout → redirect to `/login`, hitting `/profile` post-logout bounces back to `/login`. `npm run lint` is broken pre-existing (ESLint 9.39.5 + eslint-config-next 16.3.3 FlatCompat circular-JSON crash on config load, confirmed present before this session's changes) — not a Phase 08 regression; `next build` (what Vercel actually runs) is unaffected and is the meaningful gate.
 
 ## Phase 09 — Frontend customers + interactions
 - [ ] `zod` schemas mirroring backend
