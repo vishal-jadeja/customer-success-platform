@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import RoleGate from "@/components/common/RoleGate";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logout } from "@/store/slices/authSlice";
 
-// Nav is deliberately minimal this phase: Customers/Interactions/Dashboard
-// pages don't exist yet (Phase 09/10) and linking to them now would be
-// exactly the dead link the master plan warns against for the optional
-// Users page. Each phase adds its own nav entry when its page ships.
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -27,6 +24,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           CSP
         </Link>
         <nav className="flex items-center gap-4 text-sm">
+          <Link href="/dashboard" className="hover:underline">
+            Dashboard
+          </Link>
+          <Link href="/customers" className="hover:underline">
+            Customers
+          </Link>
+          <Link href="/interactions" className="hover:underline">
+            Interactions
+          </Link>
+          <RoleGate allow={["admin", "manager"]}>
+            <Link href="/users" className="hover:underline">
+              Users
+            </Link>
+          </RoleGate>
           <Link href="/profile" className="hover:underline">
             Profile
           </Link>
