@@ -17,13 +17,13 @@ backend/entrypoint.sh          # alembic upgrade head && uvicorn
 frontend/Dockerfile
 frontend/.dockerignore         # confirm present (node_modules, .next, .env)
 docker-compose.yml             # extend: add backend + frontend services
-frontend/next.config.js        # confirm output: "standalone" + proxy rewrite
+frontend/next.config.ts        # output is gated on BUILD_STANDALONE=1 (Docker only); proxy rewrite
 .env.example                   # BACKEND_URL for compose
 ```
 
 ## Tasks
 1. `backend/Dockerfile`: `python:3.13-slim` (matches `.python-version`), install deps, copy app, non-root user, expose 8000. `entrypoint.sh` runs `alembic upgrade head` then `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
-2. `frontend/Dockerfile`: multi-stage (deps → build → runner) using Next `output: "standalone"`; run `node server.js` on 3000. **`BACKEND_URL` is consumed at `next build` time** — `next.config.js` `rewrites()` is evaluated during the build and the destination is written into the routes manifest — so it **must be a build arg**: `ARG BACKEND_URL` + `ENV BACKEND_URL=$BACKEND_URL` in the build stage, and compose passes `build.args.BACKEND_URL=http://backend:8000`. (Setting it only as a runtime env produces a rewrite to `undefined/api/v1/…`.) Also set it as a runtime `ENV` in the runner stage for consistency.
+2. `frontend/Dockerfile`: multi-stage (deps → build → runner). **Set `ENV BUILD_STANDALONE=1` in the build stage before `next build`** — `next.config.ts` gates `output: "standalone"` on that flag (unset on Vercel, where standalone breaks the build with `ENOENT .next/next-server.js.nft.json`). With the flag set the standalone server is emitted; run `node server.js` on 3000. **`BACKEND_URL` is consumed at `next build` time** — `next.config.js` `rewrites()` is evaluated during the build and the destination is written into the routes manifest — so it **must be a build arg**: `ARG BACKEND_URL` + `ENV BACKEND_URL=$BACKEND_URL` in the build stage, and compose passes `build.args.BACKEND_URL=http://backend:8000`. (Setting it only as a runtime env produces a rewrite to `undefined/api/v1/…`.) Also set it as a runtime `ENV` in the runner stage for consistency.
 3. Extend `docker-compose.yml`: `backend` (depends_on postgres+redis healthy, env from `.env`, `DATABASE_URL=postgresql+psycopg2://.../@postgres:5432/...`, `REDIS_URL=redis://redis:6379/0`, `COOKIE_SECURE=false`), `frontend` (depends_on backend, `build.args: BACKEND_URL=http://backend:8000` — the internal service name works because the rewrite is executed by the Next.js server, not the browser). Keep named volumes.
 4. Verify inter-service DNS: backend reaches `postgres`/`redis` by service name; the frontend server reaches `backend:8000` by service name; the browser only ever hits `localhost:3000` and its `/api/v1/*` is proxied.
 

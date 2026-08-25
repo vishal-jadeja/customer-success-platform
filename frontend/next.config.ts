@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // "standalone" is only for the self-hosted Docker image (Phase 11), where the
+  // Dockerfile sets BUILD_STANDALONE=1 before `next build`. On Vercel it must be
+  // omitted: Vercel builds its own output and the standalone trace step fails with
+  // `ENOENT .next/next-server.js.nft.json`, breaking the deploy.
+  output: process.env.BUILD_STANDALONE === "1" ? "standalone" : undefined,
   agentRules: false, // don't let `next dev` regenerate AGENTS.md/CLAUDE.md over the repo's own
   async rewrites() {
     if (!process.env.BACKEND_URL) {

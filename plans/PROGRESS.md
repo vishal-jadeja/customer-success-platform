@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 03 — code + tests done, uncommitted; deploy sub-tasks blocked on dashboard access (see Blocked / notes) → then 04
+**Current phase:** 03 — code + tests done and committed (`85800d2`, pushed to origin); deploy in progress (Render+Neon+Upstash+Vercel, driven from dashboards) → then 04
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
