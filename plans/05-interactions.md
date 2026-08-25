@@ -11,7 +11,8 @@ Phase 04.
 
 ## Files created or modified
 ```
-backend/app/schemas/interaction.py     # InteractionCreate, InteractionUpdate, InteractionOut (+ nested InsightOut, added in 06)
+backend/app/schemas/interaction.py     # InteractionCreate, InteractionUpdate, InteractionOut
+backend/app/schemas/insight.py         # minimal InsightOut (id, status, error_message) — extended in 06; needed NOW so the create response validates
 backend/app/repositories/interaction.py
 backend/app/services/interaction_service.py
 backend/app/api/v1/routers/interactions.py
@@ -19,7 +20,7 @@ backend/app/main.py                     # include router
 ```
 
 ## Tasks
-1. `schemas/interaction.py`: create requires `customer_id`, `type`, `title`, `notes` (min 20 chars), `occurred_at`; optional `duration_minutes`. `InteractionOut` carries an `insight` field (present from create as `status='pending'`; shape filled in Phase 06).
+1. `schemas/interaction.py`: create requires `customer_id`, `type`, `title`, `notes` (min 20 chars), `occurred_at`; optional `duration_minutes`. `InteractionOut` carries an `insight: InsightOut` field. Define a **minimal `InsightOut`** (`id`, `status`, `error_message`) in this phase so the create response (`status='pending'`) serialises; Phase 06 adds summary/sentiment/action_items/risks/provider.
 2. `repositories/interaction.py`:
    - `list_interactions(db, user, filters, page)` — join to `customers` and apply `apply_customer_scope` on that join so scope is inherited; filters `customer_id`, `type`, `sentiment` (join insight), `date_from`/`date_to` on `occurred_at`, `q` ILIKE title/notes.
    - `list_for_customer(db, user, customer_id, page)`.

@@ -10,7 +10,7 @@ AI-powered Customer Success Platform. Users manage customers and interactions, g
 
 **Frontend:** Next.js App Router + TypeScript · Redux Toolkit (`createSlice` + `createAsyncThunk`, **no RTK Query**), normalised `entities`/`ids` + `idle|loading|succeeded|failed` status per slice · Axios shared instance with request (auth) + response (401) interceptors · Tailwind · react-hook-form + zod · Recharts.
 
-**Backend:** Python + FastAPI · **synchronous** SQLAlchemy 2.0 + psycopg2-binary (sync runs in FastAPI's threadpool) · Alembic (never `create_all`) · Pydantic v2 + pydantic-settings · PostgreSQL · Redis · JWT via pyjwt · passlib[bcrypt].
+**Backend:** Python + FastAPI · **synchronous** SQLAlchemy 2.0 + psycopg2-binary (sync runs in FastAPI's threadpool) · Alembic (never `create_all`) · Pydantic v2 + pydantic-settings · PostgreSQL · Redis · JWT via pyjwt · `bcrypt` (direct, no passlib).
 
 **AI:** Groq primary, Cerebras failover. Both OpenAI-compatible. One `LLMProvider` protocol, two implementations. Free-tier models. Keys/models/order from env.
 
@@ -23,7 +23,17 @@ AI-powered Customer Success Platform. Users manage customers and interactions, g
 | 1 | Access token in Redux memory; refresh token in httpOnly + Secure + **SameSite=Lax** cookie, made **first-party** via a Next.js reverse proxy | Browser only ever talks to the Vercel origin (`/api/v1` → proxied to Render). No cross-site cookie, so no ITP/Chrome breakage. CORS no longer load-bearing. Axios uses a relative `baseURL`, no `withCredentials`. Route guard + silent refresh on mount. |
 | 2 | AI inline synchronous; interaction **and** a `pending` insight row committed together, then the row is updated to completed/failed | No polling, no worker. One spinner. `pending→completed/failed` is a genuine observed state; regenerate has a sane starting point. |
 | 3 | Single-tenant, ownership-based scoping (`customers.owner_id`) | No `organizations` table. "Own" = `owner_id == self`. Ownership check in service layer. |
-| 4 | Thin pytest suite (~4–6 backend tests, written in-phase), no frontend tests | Tests live at the end of the phase whose code they cover, not a separate phase. Trade-off documented. |
+| 4 | Thin pytest suite (~4–6 backend tests, written in-phase), no frontend tests | Tests live at the end of the phase whose code they cover, not a separate phase. Shared `tests/conftest.py` (test DB, fakeredis, rate-limit off) is built in Phase 03. Trade-off documented. |
+
+## Settings added by the senior review (post-Phase-01)
+
+| Setting | Default | Why |
+|---|---|---|
+| `GROQ_API_KEY`, `GROQ_MODEL`, `CEREBRAS_API_KEY`, `CEREBRAS_MODEL` | `""` (optional) | A grader running `docker compose up` without LLM keys must still get a booting app. Providers with an empty key are skipped; zero providers ⇒ insight `failed`, `error_message="no LLM provider configured"`. |
+| `LLM_TOTAL_BUDGET_SECONDS` | `35` | One overall deadline across providers **and** repair calls, so worst case stays under the 45 s client cap (2 × (15 + 15) = 60 s otherwise). |
+| `RATE_LIMIT_ENABLED` | `True` (`False` under pytest) | Behind the Vercel→Render proxy every user shares one source IP; the limiter keys on the first `X-Forwarded-For` hop and is switched off in tests. |
+| `REFRESH_REUSE_GRACE_SECONDS` | `10` | Two tabs hard-refreshing at once both present the same refresh cookie; without a grace window the second is "reuse" and logs the user out. |
+| `COOKIE_SECURE` | `true` in prod, **`false` in the local `.env.example`** | Safari rejects `Secure` cookies over `http://localhost`. |
 
 ## Layering (enforced)
 
@@ -162,9 +172,9 @@ Prefix `/api/v1`. Auth: `–` public · `A` access token · `C` refresh cookie.
 | GET | /users | A | admin, manager | Paginated users |
 | POST | /users | A | admin | Create user any role |
 | PATCH | /users/{id} | A | admin | Role / deactivate |
-| DELETE | /users/{id} | A | admin | Soft delete |
+| DELETE | /users/{id} | A | admin | Soft delete (`is_active=false`); hard delete is never exposed, so `ON DELETE RESTRICT` only guards direct DB access |
 | GET | /customers | A | scoped | filters/sort/pagination |
-| POST | /customers | A | any | Create |
+| POST | /customers | A | any | Create. CSM: `owner_id` omitted → self-owned; `owner_id` ≠ self → 403 (service check) |
 | GET | /customers/{id} | A | scoped | Detail + interaction count |
 | PATCH | /customers/{id} | A | admin/manager/owner-csm | Update |
 | DELETE | /customers/{id} | A | admin | Hard delete, cascades |
@@ -196,6 +206,7 @@ List envelope: `{ items, total, page, page_size, total_pages }`.
 | ConflictError | 409 | CONFLICT |
 | IntegrityError (unique email; `ON DELETE RESTRICT`) | 409 | CONFLICT — caught in repo, mapped to `ConflictError`; never a raw 500 |
 | AuthError | 401 | UNAUTHORIZED |
+| AuthError (refresh reused inside the 10 s grace window) | 401 | REFRESH_RACE — client retries `/auth/refresh` once; family **not** revoked |
 | ExternalServiceError | 502 | EXTERNAL_SERVICE_ERROR |
 | RequestValidationError | 422 | VALIDATION_ERROR + field details |
 | unhandled Exception | 500 | INTERNAL_ERROR, generic message, traceback logged only |
@@ -255,34 +266,35 @@ Tests are no longer a phase — each critical test is the final checklist item o
 |---|---|---|
 | 01 | Scaffold, config, .env.example, Compose (PG+Redis) | 45m |
 | 02 | Models, Alembic migration, seed | 1h |
-| 03 | Auth + rotating refresh + RBAC + error envelope + request-id **+ full end-to-end deploy (minimal FE skeleton) + reuse-detection test** | 2h30 |
+| 03 | Auth + rotating refresh (+ reuse grace window) + RBAC + error envelope + request-id + rate limit **+ `tests/conftest.py` + reuse-detection test + full end-to-end deploy (minimal FE skeleton)** | 2h50 |
 | 04 | Customers CRUD + filters + pagination **+ RBAC-denial test** | 1h20 |
 | 05 | Interactions CRUD + filters + nested (+ pending insight row) | 45m |
 | 06 | AI pipeline Groq+Cerebras failover **+ failover/malformed-JSON test** | 1h30 |
 | 07 | Dashboard endpoints + Redis cache + invalidation **+ cache-invalidation test** | 1h15 |
-| 08 | Frontend foundation (proxy rewrite, relative axios) | 1h30 |
-| 09 | Frontend customers + interactions | 1h20 |
-| 10 | Frontend AI panel + dashboard charts | 1h15 |
+| 08 | Frontend foundation (proxy rewrite, relative axios) **+ profile page** | 1h45 |
+| 09 | Frontend customers + interactions **(list w/ filters, detail, create, edit — all PDF capabilities)** | 1h45 |
+| 10 | Frontend AI panel + dashboard charts (+ optional Users admin page, first to cut) | 1h30 |
 | 11 | Dockerfiles + full Compose | 45m |
 | 12 | Re-deploy + verify (deploy already stood up in 03) | 45m |
 | 13 | README + demo script + verification | 1h |
 
-**Summed focused-build estimate ≈ ~12h30–13h** (was 14h50: −~25m from the Blocker-2 assignee cut, tests redistributed into their phases, Phase 12 shrunk because the first deploy now happens in Phase 03 which absorbs that cost).
+**Summed focused-build estimate ≈ ~16h30–17h** (senior review added the PDF capabilities that had no frontend plan — profile page, interaction detail/edit/filters — plus test infrastructure; the phase files' estimates now match this table).
 
-**Realistic wall-clock: 20–25 hours.** Sync SQLAlchemy setup, Alembic enum quirks, a first Render deploy, and video re-records each eat clock the phase estimates don't show. Every graded deliverable — Docker Compose, README, both live URLs, the demo video — sits at the end of the sequence, exactly where an over-scoped plan runs out of time. **An unfinished ambitious build scores worse than a complete modest one.**
+**Realistic wall-clock: 24–30 hours.** Sync SQLAlchemy setup, Alembic enum quirks, a first Render deploy, and video re-records each eat clock the phase estimates don't show. Every graded deliverable — Docker Compose, README, both live URLs, the demo video — sits at the end of the sequence, exactly where an over-scoped plan runs out of time. **An unfinished ambitious build scores worse than a complete modest one.**
 
 ## Cut order — executed when the schedule slips (not only on an external blocker)
 
 When you are behind, drop these in order, least-costly first:
 
-1. Dashboard sentiment-trend chart
-2. Interaction edit form
-3. Full-stack Compose → infra-only Compose (Postgres + Redis)
-4. `PATCH /users/{id}` role-management UI
+1. Dashboard sentiment-trend chart (KPI cards + at-risk list stay — "dashboard reporting" is still delivered)
+2. Users admin page (`/users` list + role select) — remove the nav link with it; the backend endpoints stay
+3. Customer edit-page polish (keep a working edit form; drop the nice-to-haves)
+
+**Not cuttable, ever** — each is a capability named in the PDF or a submission artefact: profile page · interaction detail / update / list filters · both Dockerfiles + full-stack Compose. The previous cut order listed "interaction edit form" and "infra-only Compose"; both would have dropped graded items.
 
 Frontend vitest stays out — that was a scope choice in Decision 4, not a time-pressure cut.
 
-**Never sacrificed:** refresh rotation + reuse detection · two-level RBAC · owner-scoped queries · customer CRUD · interaction CRUD · AI failover + failure handling · dashboard summary · Redis cache + invalidation · both deployed URLs · README · demo video.
+**Never sacrificed:** refresh rotation + reuse detection · two-level RBAC · owner-scoped queries · customer CRUD · interaction CRUD **(incl. detail + edit + filters in the UI)** · profile page · AI failover + failure handling · dashboard summary · Redis cache + invalidation · **both Dockerfiles + full-stack Compose** · both deployed URLs · README · demo video.
 
 ## Risks
 
@@ -290,13 +302,17 @@ Frontend vitest stays out — that was a scope choice in Decision 4, not a time-
 - Render free-tier cold start (~50s) — hit URL before recording; note in README.
 - Alembic autogenerate skips `CREATE TYPE` for enums on first migration — see Phase 02 pitfalls.
 - Groq rate limits during seed — seed writes insights straight to DB with `status=completed`, `provider='seed'`, no LLM call.
-- First deploy at hour 3 (not hour 12) — a deploy problem is an inconvenience early, fatal late. Phase 03 stands the whole stack up on the deployed URLs.
+- First deploy at hour 3 (not hour 12) — a deploy problem is an inconvenience early, fatal late. Phase 03 stands the whole stack up on the deployed URLs. **Render uses the native Python runtime** (no Dockerfile exists yet at Phase 03; the Dockerfiles are for Compose/grading).
+- **`next.config.js` rewrites are resolved at build time**, not request time. `BACKEND_URL` must be present when `next build` runs — set before the Vercel build, and passed as a Docker `ARG` in Phase 11. (The old plan called it "runtime, not baked"; that was wrong.)
+- **Rate limiting behind the proxy.** All browser traffic reaches Render from the Vercel proxy, so a limiter keyed on the socket IP throttles *everyone together*. Key on `X-Forwarded-For`, and disable under pytest.
+- **Cold start vs. silent refresh.** The mount-time `/auth/refresh` must tolerate a ~50 s Render wake-up (60 s timeout on that one call + "waking up the server…" banner), or the first visitor is bounced to `/login`.
+- **Multi-tab refresh race.** Two tabs presenting the same refresh cookie within milliseconds would trip reuse detection; a 10 s grace window keeps strict revocation for real theft (minutes/hours later) without logging out honest users.
 
 ---
 
 # Design Decisions & Trade-offs (lift into README)
 
-**Auth — access in memory, refresh in a first-party httpOnly cookie, with rotation + reuse detection.** Access tokens are short-lived and held only in Redux memory, so an XSS payload cannot read a long-lived credential from storage. The refresh token lives in an httpOnly+Secure+**SameSite=Lax** cookie JS cannot touch. The frontend never calls the backend cross-origin: a **Next.js reverse proxy** rewrites `/api/v1/*` to the backend, so from the browser's view the cookie is first-party to the Vercel origin. This sidesteps Safari ITP and Chrome's third-party-cookie behaviour entirely — a `SameSite=None` cross-site cookie between Vercel and Render (both on the Public Suffix List, so no shared parent domain) would have worked on localhost and then silently failed in production. As a bonus the Render URL never reaches the client. Every refresh rotates the token; presenting an already-revoked token triggers family-wide revocation — the standard defence against refresh-token theft.
+**Auth — access in memory, refresh in a first-party httpOnly cookie, with rotation + reuse detection.** Access tokens are short-lived and held only in Redux memory, so an XSS payload cannot read a long-lived credential from storage. The refresh token lives in an httpOnly+Secure+**SameSite=Lax** cookie JS cannot touch. The frontend never calls the backend cross-origin: a **Next.js reverse proxy** rewrites `/api/v1/*` to the backend, so from the browser's view the cookie is first-party to the Vercel origin. This sidesteps Safari ITP and Chrome's third-party-cookie behaviour entirely — a `SameSite=None` cross-site cookie between Vercel and Render (both on the Public Suffix List, so no shared parent domain) would have worked on localhost and then silently failed in production. As a bonus the Render URL never reaches the client. Every refresh rotates the token; presenting an already-revoked token triggers family-wide revocation — the standard defence against refresh-token theft — except inside a 10 s grace window, which absorbs the benign case of two tabs refreshing at once. Because the cookie is `SameSite=Lax`, a cross-site page cannot make the browser send it on a POST, so `/auth/refresh` is CSRF-safe without a separate CSRF token. The access token carries the role only as a hint: every request loads the user from the DB, so a role change or deactivation takes effect immediately rather than at token expiry.
 
 **RBAC — two levels.** A role dependency on the route gates the verb; a service-layer ownership check gates the row. Route-only would let a CSM edit another CSM's customer; service-only would lose the self-documenting route contract. Scope is a single function (`apply_customer_scope`): admin/manager see all, a CSM sees `owner_id == self`.
 

@@ -18,9 +18,9 @@ README.md (env + URLs — finalized in Phase 13)
 
 ## Tasks
 1. **Neon / Upstash:** already provisioned in Phase 03. Confirm `DATABASE_URL` (pooled, `sslmode=require`) and `REDIS_URL` (`rediss://` TLS) are still set; run `alembic upgrade head` to apply any migrations added since the skeleton.
-2. **Render backend:** redeploy the now-complete backend. Env vars: JWT_SECRET, DATABASE_URL, REDIS_URL, GROQ/CEREBRAS keys+models, `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`. `CORS_ORIGINS` stays minimal (own-origin only) — not load-bearing, since the browser reaches the backend only through the Vercel proxy. Release/start command applies migrations.
+2. **Render backend:** redeploy the now-complete backend on the **native Python runtime** set up in Phase 03 (build `pip install .`, start `alembic upgrade head && uvicorn …`); the Dockerfile is for Compose, not Render. Env vars: JWT_SECRET, DATABASE_URL, REDIS_URL, GROQ/CEREBRAS keys+models, `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`. `CORS_ORIGINS` stays minimal (own-origin only) — not load-bearing, since the browser reaches the backend only through the Vercel proxy. Release/start command applies migrations.
 3. **Vercel frontend:** redeploy the full frontend. Ensure `BACKEND_URL=<render backend url>` is set as a **server-side** env (NOT `NEXT_PUBLIC_`) so the `next.config.js` rewrite proxies `/api/v1/*` to Render. There is no public API-URL var.
-4. **Seed prod:** run `python scripts/seed.py` against Neon (one-off Render job or local run with prod URL).
+4. **Seed prod:** run `python scripts/seed.py` **locally** with `DATABASE_URL` pointed at Neon (Render's free tier has no shell / one-off jobs). Unset it again afterwards.
 5. **Cookie confirm:** `Set-Cookie` on login has `Secure; SameSite=Lax`, no `Domain`, and the browser stores it against the **Vercel** origin (first-party). Confirm no browser request goes to the Render domain.
 6. **End-to-end check** across all three roles.
 
@@ -28,7 +28,7 @@ README.md (env + URLs — finalized in Phase 13)
 - Missing prod env var → backend fails fast at boot (Settings validation) — check Render logs first on any 500.
 - Missing/wrong `BACKEND_URL` on Vercel → the proxy 502s or 404s `/api/v1/*`; check it is set server-side and points at the Render URL.
 - DB SSL required on Neon → include `sslmode=require`; a plain URL fails to connect.
-- Cold start (Render free) → first request slow, not an error; retry.
+- Cold start (Render free) → first request slow, not an error. The frontend's mount-time refresh has a 60 s timeout + "Waking up the server…" banner (Phase 08) so the visitor is not bounced to `/login`.
 
 ## Acceptance criteria
 - Backend `/healthz` on the Render URL → 200 (DB + Redis both reachable).

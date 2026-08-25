@@ -7,7 +7,7 @@ Once done: three dashboard endpoints return scoped business metrics (KPI summary
 Phase 06 (needs insights for sentiment metrics). Cache stubs from Phases 04–06 are replaced with real calls here.
 
 ## Estimated time
-1h.
+1h15.
 
 ## Files created or modified
 ```
@@ -69,4 +69,4 @@ docker compose stop redis && curl -si :8000/api/v1/dashboard/summary -H "authori
 - **Don't cache per-request objects** (ORM instances) — cache plain dicts built from schemas.
 
 ## Test (final task of this phase — written in context)
-- `backend/tests/test_cache.py`: **cache invalidation after write.** `get_json` miss then hit on a repeated read (no second SQL). A customer write calls `invalidate("customers")` and the version key increments, so the next read is a MISS with fresh data. Assert the version counter incremented (or that the next read misses). Use a fake or real Redis; no external network.
+- `backend/tests/test_cache.py`: **cache invalidation after write.** `get_json` miss then hit on a repeated read (no second SQL). A customer write calls `invalidate("customers")` and the version key increments, so the next read is a MISS with fresh data. Assert the version counter incremented (or that the next read misses). Use the `fakeredis` fixture from `conftest.py`; no external network.

@@ -7,7 +7,7 @@ Once done: each interaction shows an AI insight panel (summary, sentiment badge,
 Phase 09, Phase 06, Phase 07.
 
 ## Estimated time
-1h15.
+1h30 (1h without the optional Users page).
 
 ## Files created or modified
 ```
@@ -19,10 +19,12 @@ frontend/
   components/dashboard/KpiCards.tsx
   components/dashboard/SentimentTrendChart.tsx   # Recharts
   components/dashboard/AtRiskList.tsx
+  app/(app)/users/page.tsx                        # OPTIONAL, last task, first to cut — admin/manager list + admin role select
+  store/slices/usersSlice.ts                      # OPTIONAL
 ```
 
 ## Tasks
-1. `InsightPanel`: reads the interaction's `insight` (a row always exists from create — see Phase 05/06). States:
+1. `InsightPanel`: mounted on the **interaction detail page** (Phase 09) and inline under each row on the customer detail page. Reads the interaction's `insight` (a row always exists from create — see Phase 05/06). States:
    - `completed` → summary text, `SentimentBadge`, action items list, risks list.
    - `failed` → error message + "Regenerate" button (dispatch regenerate thunk).
    - `pending` → "Generating…" (transient; inline sync generation means the create response is usually already `completed`/`failed`, but regenerate briefly re-enters `pending`).
@@ -32,6 +34,7 @@ frontend/
 4. `dashboardSlice`: thunks `fetchSummary`, `fetchSentimentTrend(days)`, `fetchAtRisk`. status/error each.
 5. Dashboard page: `KpiCards` (total customers, ARR, avg health, at-risk count, interactions 30d), `SentimentTrendChart` (Recharts LineChart/AreaChart over days×sentiment), `AtRiskList`.
 6. Loading skeletons, empty states (zeros/empty arrays render cleanly), error retry.
+7. **Optional — Users admin page** (`/users`): table from `GET /users`; admin gets a role `<select>` → `PATCH /users/{id}` and a deactivate toggle. Only when this ships does the "Users" nav link appear (Phase 08). This is cut-order item 2; skip it without guilt if the schedule has slipped.
 
 ## Error handling requirements
 - Insight `failed` → show `error_message`, offer Retry; never a blank panel.

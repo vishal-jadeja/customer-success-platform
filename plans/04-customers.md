@@ -28,7 +28,7 @@ backend/app/main.py                   # include router
    - `get(db, id)`, `create`, `update`, `delete`. `create`/`update` **catch `IntegrityError` (unique email) → raise `ConflictError`** — never pre-check existence (that is a TOCTOU race).
 4. `services/customer_service.py`:
    - `_assert_can_access(db, customer, user)` — admin/manager pass; csm must own (`owner_id == user.id`) else `PermissionDeniedError`.
-   - `list/get/create/update/delete` orchestrate repo + access checks + owner rules. CSM create forces `owner_id=self`. Only admin/manager may set/change `owner_id`.
+   - `list/get/create/update/delete` orchestrate repo + access checks + owner rules. CSM create: `owner_id` omitted → `self`; `owner_id` present and ≠ self → `PermissionDeniedError` (explicit 403 beats silently overriding what the client sent). CSM update: any `owner_id` ≠ self → 403. Only admin/manager may set/change `owner_id`.
    - Delete: admin only (route-gated), hard delete cascades.
    - On create/update/delete call cache-invalidation hook (added in Phase 07; leave a `invalidate_customers()` call site now, no-op stub until then).
 5. `api/v1/routers/customers.py`: wire endpoints with `require_roles` where the matrix demands, `PageParams` + filter query params, and pass `current_user` into the service.
@@ -36,14 +36,14 @@ backend/app/main.py                   # include router
 ## Error handling requirements
 - Customer not found → `NotFoundError` 404 (check existence first, then access; a 404 vs 403 distinction is acceptable here since scope is by ownership not secrecy).
 - CSM accessing non-owned customer → `PermissionDeniedError` 403.
-- CSM attempting to set `owner_id` → 403 (route-gated).
+- CSM supplying `owner_id` ≠ self on create or update → 403 (**service-level** check — it is a body field, so it cannot be route-gated).
 - Duplicate email on create/update → `ConflictError` 409, produced by catching `IntegrityError`, **not** by a pre-existence check.
 - Invalid sort field → `ValidationError` 422 (whitelist, never interpolate raw into SQL).
 
 ## Acceptance criteria
 - Admin lists all customers; a CSM lists only owned; counts differ accordingly.
 - CSM `GET /customers/{other}` → 403; `GET /customers/{own}` → 200.
-- Creating as CSM forces `owner_id`=self even if a different one is sent.
+- Creating as CSM with `owner_id` omitted → self-owned; with another user's id → 403.
 - Manager changes `owner_id`; the customer moves out of the old owner's scope into the new owner's.
 - Creating two customers with the same email → the second returns 409 (from `IntegrityError`), not a 500.
 - List envelope has correct `total`/`total_pages` across pages.
@@ -68,4 +68,4 @@ curl -si -X POST ":8000/api/v1/customers" -H "authorization: Bearer $MGR" -d '{"
 - Leave the cache-invalidation calls as stubs now; do NOT reach into Redis before Phase 07 wires `app/core/cache.py`.
 
 ## Test (final task of this phase — written in context)
-- `backend/tests/test_rbac.py`: **RBAC denial.** A CSM cannot read another CSM's customer — `csm` GET `csm2`'s customer → 403; `csm` GET own → 200; manager GET any → 200; `csm` DELETE → 403, admin DELETE → 204; `csm` setting `owner_id` → 403. Fixtures: `admin`/`manager`/`csm`/`csm2` + tokens, a customer owned by `csm` and one by `csm2`.
+- `backend/tests/test_rbac.py`: **RBAC denial.** A CSM cannot read another CSM's customer — `csm` GET `csm2`'s customer → 403; `csm` GET own → 200; manager GET any → 200; `csm` DELETE → 403, admin DELETE → 204; `csm` POST with another `owner_id` → 403, with `owner_id` omitted → 201 self-owned. Uses the Phase 03 `conftest.py` fixtures. Fixtures: `admin`/`manager`/`csm`/`csm2` + tokens, a customer owned by `csm` and one by `csm2`.

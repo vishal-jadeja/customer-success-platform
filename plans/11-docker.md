@@ -22,9 +22,9 @@ frontend/next.config.js        # confirm output: "standalone" + proxy rewrite
 ```
 
 ## Tasks
-1. `backend/Dockerfile`: `python:3.12-slim`, install deps, copy app, non-root user, expose 8000. `entrypoint.sh` runs `alembic upgrade head` then `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
-2. `frontend/Dockerfile`: multi-stage (deps → build → runner) using Next `output: "standalone"`; run `node server.js` on 3000. `BACKEND_URL` is a **runtime server-side env** (used by the proxy rewrite at request time) — it does **not** need to be a build arg, unlike the old baked `NEXT_PUBLIC_*`.
-3. Extend `docker-compose.yml`: `backend` (depends_on postgres+redis healthy, env from `.env`, `DATABASE_URL=postgresql+psycopg2://.../@postgres:5432/...`, `REDIS_URL=redis://redis:6379/0`), `frontend` (depends_on backend, `BACKEND_URL=http://backend:8000` — the internal service name **works now** because the rewrite runs server-to-server, not in the browser). Keep named volumes.
+1. `backend/Dockerfile`: `python:3.13-slim` (matches `.python-version`), install deps, copy app, non-root user, expose 8000. `entrypoint.sh` runs `alembic upgrade head` then `uvicorn app.main:app --host 0.0.0.0 --port 8000`.
+2. `frontend/Dockerfile`: multi-stage (deps → build → runner) using Next `output: "standalone"`; run `node server.js` on 3000. **`BACKEND_URL` is consumed at `next build` time** — `next.config.js` `rewrites()` is evaluated during the build and the destination is written into the routes manifest — so it **must be a build arg**: `ARG BACKEND_URL` + `ENV BACKEND_URL=$BACKEND_URL` in the build stage, and compose passes `build.args.BACKEND_URL=http://backend:8000`. (Setting it only as a runtime env produces a rewrite to `undefined/api/v1/…`.) Also set it as a runtime `ENV` in the runner stage for consistency.
+3. Extend `docker-compose.yml`: `backend` (depends_on postgres+redis healthy, env from `.env`, `DATABASE_URL=postgresql+psycopg2://.../@postgres:5432/...`, `REDIS_URL=redis://redis:6379/0`, `COOKIE_SECURE=false`), `frontend` (depends_on backend, `build.args: BACKEND_URL=http://backend:8000` — the internal service name works because the rewrite is executed by the Next.js server, not the browser). Keep named volumes.
 4. Verify inter-service DNS: backend reaches `postgres`/`redis` by service name; the frontend server reaches `backend:8000` by service name; the browser only ever hits `localhost:3000` and its `/api/v1/*` is proxied.
 
 ## Error handling requirements
@@ -50,7 +50,8 @@ curl -s localhost:8000/healthz
 
 ## Known pitfalls
 - **Browser-vs-container hostname trap is gone.** The proxy makes API calls server-to-server, so `BACKEND_URL=http://backend:8000` (internal DNS) is correct — the browser never resolves it. This is a real simplification the reverse proxy buys us; the old `NEXT_PUBLIC_API_URL=http://localhost:8000` juggling no longer applies.
-- **`BACKEND_URL` is runtime, not baked.** Because the rewrite reads `process.env.BACKEND_URL` server-side at request time, it does not need to be a build arg; set it as a container/runtime env.
+- **`BACKEND_URL` IS baked at build time.** `next.config.js` runs during `next build`; the rewrite destination is frozen into `.next/routes-manifest.json`. Pass it as a Docker build `ARG`. If a truly runtime-configurable target is ever needed, replace the config rewrite with an `app/api/v1/[...path]/route.ts` proxy handler — deliberately not done here (more code, must forward `Set-Cookie` by hand).
+- **Frontend build needs no backend up** — the rewrite only stores a URL; nothing is fetched at build time.
 - **psycopg2 driver in URL:** `postgresql+psycopg2://` for SQLAlchemy; a bare `postgres://` can misparse.
 - **Cookie Secure over http in compose:** for local compose you may need `COOKIE_SECURE=false` (http localhost); prod stays true (https). Drive it from env.
 - **Slim image missing libpq:** `psycopg2-binary` bundles it, but if you switch to `psycopg2` you'd need `libpq-dev` + build tools. Stay on `-binary`.

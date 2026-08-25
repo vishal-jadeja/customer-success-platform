@@ -29,7 +29,7 @@ scripts/seed.py
 ```
 
 ## Tasks
-1. `app/db.py`: `engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)`, `SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)`, `class Base(DeclarativeBase): pass`, and `get_db()` generator (`try: yield db; finally: db.close()`).
+1. `app/db.py`: `engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, pool_size=5, max_overflow=5)` (a request holds its pooled connection for the whole ≤35 s LLM call in Phase 06 — bound the pool explicitly and use Neon's pooler URL in prod), `SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)`, `class Base(DeclarativeBase): pass`, and `get_db()` generator (`try: yield db; finally: db.close()`).
 2. `models/enums.py`: Python `enum.Enum` classes matching the ERD. Use `str, enum.Enum` mixin so values serialize cleanly.
 3. Models with `Mapped[...]` / `mapped_column(...)`. UUID PKs default `uuid.uuid4`. Timestamps `server_default=func.now()`, updated_at `onupdate=func.now()`. Add all indexes and the `health_score` CHECK constraint. `customers.owner_id` is `ON DELETE RESTRICT`. Relationships: `Customer.owner`, `Customer.interactions`; `Interaction.insight` (uselist=False).
 4. `models/__init__.py` imports every model so `Base.metadata` is complete for autogenerate.

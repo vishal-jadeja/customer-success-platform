@@ -27,15 +27,18 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     REDIS_URL: str
     JWT_SECRET: str
-    GROQ_API_KEY: str
-    GROQ_MODEL: str
-    CEREBRAS_API_KEY: str
-    CEREBRAS_MODEL: str
 
     # --- Auth / token config ---
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_MIN: int = 15
     REFRESH_TOKEN_TTL_DAYS: int = 7
+    # A refresh token revoked less than this many seconds ago is treated as a
+    # benign concurrent refresh (two tabs), not as theft: 401 without revoking
+    # the whole family. Older reuse still revokes every token for the user.
+    REFRESH_REUSE_GRACE_SECONDS: int = 10
+    # Login rate limiting (slowapi). Keyed on the first X-Forwarded-For hop —
+    # behind the Vercel proxy every browser shares one socket IP. Off in tests.
+    RATE_LIMIT_ENABLED: bool = True
 
     # --- Cookie / CORS ---
     # CORS is NOT load-bearing: the browser talks to the backend only through the
@@ -47,8 +50,19 @@ class Settings(BaseSettings):
     COOKIE_SAMESITE: str = "lax"
 
     # --- LLM providers ---
+    # Keys/models are OPTIONAL: the app must boot without them (a grader running
+    # `docker compose up` with no LLM account). A provider with an empty key is
+    # skipped; with none configured, insights are stored as status=failed with
+    # error_message="no LLM provider configured".
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    CEREBRAS_API_KEY: str = ""
+    CEREBRAS_MODEL: str = "llama-3.3-70b"
     LLM_PROVIDER_ORDER: str = "groq,cerebras"
-    LLM_TIMEOUT_SECONDS: int = 15
+    LLM_TIMEOUT_SECONDS: int = 15  # per HTTP call
+    # Overall deadline across ALL providers and repair calls for one insight, so
+    # the worst case (2 providers x (call + repair)) stays under the 45s client cap.
+    LLM_TOTAL_BUDGET_SECONDS: int = 35
     AI_ENABLED: bool = True
 
     # --- Runtime ---

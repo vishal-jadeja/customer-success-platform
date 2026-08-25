@@ -22,14 +22,15 @@ docs/architecture.md (optional; or a section in README)
    - Overview + live URLs (frontend, backend).
    - Quick start: local (`docker compose up`, seed, open localhost:3000) and env table (every var, purpose, example — including `BACKEND_URL` server-side for the proxy; note there is **no** public API-URL var).
    - Architecture: layering diagram (router→service→repository→model), ERD summary, auth flow (first-party cookie via the Next.js reverse proxy), caching strategy, AI pipeline + failover.
-   - **Design Decisions & Trade-offs** — paste from master plan (auth + reverse proxy, two-level RBAC / ownership, sync SQLAlchemy, version-key cache **incl. the namespace-global "coarse-grained but correct" note**, inline-resilient AI, testing scope) **plus the "What I'd build next" Account-Team paragraph**.
+   - **Design Decisions & Trade-offs** — paste from master plan (auth + reverse proxy incl. the CSRF-via-`SameSite=Lax` line, role-read-from-DB line and the 10 s refresh-reuse grace window; two-level RBAC / ownership; sync SQLAlchemy; version-key cache **incl. the namespace-global "coarse-grained but correct" note**; inline-resilient AI with the 35 s total budget; testing scope) **plus the "What I'd build next" Account-Team paragraph**.
+   - Note that the app boots and works **without LLM keys** (insights show `failed: no LLM provider configured`) so a grader can run Compose immediately, and that `BACKEND_URL` is a build-time value for the frontend image.
    - Scope: an honest account — core RBAC/CRUD/AI/dashboard/cache/deploy delivered; the Account-Team access model was deliberately left out (see "What I'd build next"); frontend vitest deliberately out. State the realistic-scope framing, not a "cut nothing" claim.
    - Testing: how to run pytest + what's covered (the 4–6 in-phase tests).
 2. **Demo script** (record ~4–6 min):
-   1. Login as admin → dashboard (global KPIs, charts).
+   1. Login as admin → dashboard (global KPIs, charts) → open Profile, change display name.
    2. Login as csm → dashboard scoped smaller; customer list scoped.
    3. Create a customer; show validation (client + server) on a bad field.
-   4. Create an interaction with meeting notes → AI insight appears (summary/sentiment/actions/risks).
+   4. Create an interaction with meeting notes → AI insight appears (summary/sentiment/actions/risks). Open the interaction list, filter by type/date, open the detail page, edit the title.
    5. Show failover story (mention Groq→Cerebras) and the failed→Retry path (or curl regenerate).
    6. Show RBAC: csm blocked from another csm's customer (403); manager reassigns `owner_id` → the customer moves into that csm's scope.
    7. Show caching: dashboard hit/miss in backend logs; a write invalidates and refreshes numbers. Name the limitation out loud: namespace-global invalidation — *"coarse-grained but correct; per-scope counters if write volume grew."*
@@ -61,4 +62,4 @@ open https://<vercel-app>  # log in with documented creds, run the demo script
 - **Don't commit secrets** — double-check git history; if a key leaked, rotate it.
 - **Credentials in README** should be seeded demo accounts with throwaway passwords, clearly marked demo-only, and placed **above** the setup steps.
 - **Keep the video tight** — rehearse once; a rambling video buries the graded features.
-- **Ship complete over ambitious.** If the schedule slips, execute the master-plan cut order (sentiment-trend chart → interaction edit form → infra-only Compose → user-role UI) rather than leaving a graded deliverable half-built. A complete modest build outscores an unfinished ambitious one.
+- **Ship complete over ambitious.** If the schedule slips, execute the master-plan cut order (sentiment-trend chart → optional Users page → customer-edit polish; never a PDF-listed capability or the Docker setup) rather than leaving a graded deliverable half-built. A complete modest build outscores an unfinished ambitious one.

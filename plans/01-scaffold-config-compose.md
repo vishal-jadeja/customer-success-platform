@@ -46,8 +46,8 @@ frontend/                      # empty placeholder dir; scaffolded in Phase 08
 
 ## Tasks
 1. Create `backend/` and `frontend/` (with `.gitkeep`).
-2. Add deps (pin versions): `fastapi`, `uvicorn[standard]`, `sqlalchemy>=2.0`, `psycopg2-binary`, `alembic`, `pydantic>=2`, `pydantic-settings`, `pyjwt`, `passlib[bcrypt]`, `redis`, `httpx`, `slowapi`, `python-multipart`; dev: `pytest`, `ruff`.
-3. `app/core/config.py`: `Settings(BaseSettings)` with `model_config = SettingsConfigDict(env_file=".env", extra="ignore")`. Fields: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_ALGORITHM="HS256"`, `ACCESS_TOKEN_TTL_MIN=15`, `REFRESH_TOKEN_TTL_DAYS=7`, `CORS_ORIGINS: list[str]`, `COOKIE_SECURE: bool=True`, `COOKIE_SAMESITE="lax"`, `GROQ_API_KEY`, `GROQ_MODEL`, `CEREBRAS_API_KEY`, `CEREBRAS_MODEL`, `LLM_PROVIDER_ORDER="groq,cerebras"`, `LLM_TIMEOUT_SECONDS=15`, `AI_ENABLED=True`, `ENV="dev"`. Expose a cached `get_settings()` (`@lru_cache`).
+2. Add deps (pin versions): `fastapi`, `uvicorn[standard]`, `sqlalchemy>=2.0`, `psycopg2-binary`, `alembic`, `pydantic>=2`, `pydantic-settings`, `pyjwt`, `bcrypt`, `redis`, `httpx`, `slowapi`, `python-multipart`; dev: `pytest`, `fakeredis`, `ruff`.
+3. `app/core/config.py`: `Settings(BaseSettings)` with `model_config = SettingsConfigDict(env_file=".env", extra="ignore")`. Fields: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `JWT_ALGORITHM="HS256"`, `ACCESS_TOKEN_TTL_MIN=15`, `REFRESH_TOKEN_TTL_DAYS=7`, `CORS_ORIGINS: list[str]`, `COOKIE_SECURE: bool=True`, `COOKIE_SAMESITE="lax"`, `GROQ_API_KEY=""`, `GROQ_MODEL`, `CEREBRAS_API_KEY=""`, `CEREBRAS_MODEL` (all four optional — see follow-up), `LLM_PROVIDER_ORDER="groq,cerebras"`, `LLM_TIMEOUT_SECONDS=15`, `LLM_TOTAL_BUDGET_SECONDS=35`, `AI_ENABLED=True`, `RATE_LIMIT_ENABLED=True`, `REFRESH_REUSE_GRACE_SECONDS=10`, `ENV="dev"`. Expose a cached `get_settings()` (`@lru_cache`).
 4. `app/main.py`: app factory `create_app()`. Add CORS middleware from `settings.CORS_ORIGINS` (permissive to the app's own origin only). **CORS is no longer load-bearing** — the browser never calls the backend cross-origin (see Reverse proxy below); this config exists only so the Render `/docs` page can be opened directly. `GET /healthz` returns `{"status":"ok"}` (DB/Redis checks wired in Phase 02/03; for now static ok). Module-level `app = create_app()`.
 5. `.env.example`: every backend `Settings` key with a placeholder value (e.g. `JWT_SECRET=change-me-32-bytes-min`, `GROQ_API_KEY=gsk_xxx`). Also document the **frontend** `BACKEND_URL` (server-side only, NOT `NEXT_PUBLIC_`) used by the proxy rewrite — the frontend has no public API-URL var. No real keys.
 6. `docker-compose.yml`: services `postgres` (image `postgres:16`, env POSTGRES_*, volume `pgdata`, healthcheck `pg_isready`, port 5432) and `redis` (image `redis:7`, volume `redisdata`, healthcheck `redis-cli ping`, port 6379). No app services yet.
@@ -69,6 +69,12 @@ cd backend && uvicorn app.main:app --port 8000 &
 curl -s localhost:8000/healthz
 docker compose up -d postgres redis && docker compose ps
 ```
+
+## Phase 01 follow-up (from the senior review — do before Phase 02)
+Phase 01 is committed (`2ecf567`). Three small corrections to what landed:
+1. **LLM keys optional.** `GROQ_API_KEY`, `GROQ_MODEL`, `CEREBRAS_API_KEY`, `CEREBRAS_MODEL` become `str = ""`. A grader without keys must still get a booting app; the failover client skips providers whose key is empty. Add `LLM_TOTAL_BUDGET_SECONDS: int = 35`, `RATE_LIMIT_ENABLED: bool = True`, `REFRESH_REUSE_GRACE_SECONDS: int = 10` (used in 03/06).
+2. **passlib → bcrypt.** Replace `passlib[bcrypt]` with `bcrypt` in `pyproject.toml`. passlib 1.7.4 is unmaintained, breaks with `bcrypt>=4.1`, and the repo pins Python 3.13 (stdlib `crypt` removed). Add `fakeredis` to `[dev]`.
+3. **`.env.example`:** local default `COOKIE_SECURE=false` (Safari rejects `Secure` over `http://localhost`); prod stays `true`. Document the three new settings.
 
 ## Known pitfalls
 - **Pydantic v2:** it's `model_config = SettingsConfigDict(...)`, NOT the v1 `class Config`. Using `class Config` silently ignores `env_file`.

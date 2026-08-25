@@ -7,7 +7,7 @@ Once done: submitting an interaction generates a structured insight (summary, se
 Phase 05.
 
 ## Estimated time
-1h15.
+1h30.
 
 ## Files created or modified
 ```
@@ -25,8 +25,8 @@ backend/app/api/v1/routers/interactions.py    # regenerate endpoint
 ## Tasks
 1. `schemas/insight.py`: `InsightPayload` (`summary: str`, `sentiment: Literal[...]`, `action_items: list[str]`, `risks: list[str]`) with a validator lowercasing sentiment and mapping unknown → `neutral`. `InsightOut` exposes stored fields incl. `status`, `provider`, `error_message`.
 2. `llm/base.py`: `class LLMProvider(Protocol)` with `name: str` and `complete(system, user, *, timeout) -> str` (returns raw content). `LLMResult` dataclass (content, provider, model, latency_ms).
-3. `llm/groq.py` / `llm/cerebras.py`: httpx POST to the OpenAI-compatible `/chat/completions`, `response_format={"type":"json_object"}`, `temperature=0.2`, model+key+base_url from settings. **Pass `timeout=LLM_TIMEOUT_SECONDS` (15s) explicitly per provider** so a hung provider can't block a threadpool worker; two providers × 15s = ≤30s worst-case fan-out, safely under the 45s per-request frontend cap on `POST /interactions`. Raise typed errors for timeout / http status.
-4. `llm/client.py`: `FailoverLLMClient(providers)` iterates in `LLM_PROVIDER_ORDER`, each call capped at 15s. For each: call, then parse chain: `json.loads` → fenced ```json extract + retry → one repair call ("return ONLY valid JSON matching this schema: ...") → next provider. On success validate with `InsightPayload`. Returns `(payload, provider, model, latency, raw)` or raises `ExternalServiceError` when all exhausted.
+3. `llm/groq.py` / `llm/cerebras.py`: httpx POST to the OpenAI-compatible `/chat/completions`, `response_format={"type":"json_object"}`, `temperature=0.2`, model+key+base_url from settings. **Pass an explicit `timeout=`** so a hung provider can't block a threadpool worker: per call `min(LLM_TIMEOUT_SECONDS, remaining_budget)` (see task 4). A provider whose key is empty is **not constructed** — the grader may run without keys. Raise typed errors for timeout / http status.
+4. `llm/client.py`: `FailoverLLMClient(providers)` iterates in `LLM_PROVIDER_ORDER`, skipping providers with no key; **zero configured providers ⇒ `ExternalServiceError("no LLM provider configured")`** (insight `failed`, app still fine). **One overall deadline:** `deadline = monotonic() + LLM_TOTAL_BUDGET_SECONDS` (35 s); every call gets `timeout=min(15, deadline - now)`; a repair call is only attempted if ≥ 8 s remain; once the deadline passes, stop and fail. Without this the naive worst case is 2 providers × (15 s call + 15 s repair) = 60 s, blowing through the 45 s client cap. Parse chain per provider: `json.loads` → fenced ```json extract → one repair call ("return ONLY valid JSON matching this schema: ...") → next provider. On success validate with `InsightPayload`. Returns `(payload, provider, model, latency, raw)` or raises `ExternalServiceError` when all exhausted.
 5. `llm/prompts.py`: system prompt (role: CS analyst; output contract; JSON only) + user template embedding truncated notes (≤8000 chars) and customer context (name, status).
 6. `insight_service.py`:
    - `generate_for_interaction(db, interaction)`: **load the existing `pending` insight row** (created in Phase 05's create transaction), `attempts+=1`. If `AI_ENABLED` false → `status=failed`, `error_message='AI disabled'`, commit, return. Call client; on success fill fields, `status=completed`; on `ExternalServiceError` → `status=failed`, `error_message`, `raw_response`=last body. Commit the insight row (second commit, separate from the interaction). Invalidate interactions+dashboard cache (stub until 07).
@@ -70,11 +70,12 @@ curl -s -X POST :8000/api/v1/interactions/$IID/insight/regenerate -H "authorizat
 ## Known pitfalls
 - **Never let AI failure 500 the create.** The single most-graded behaviour. Wrap generation; commit interaction first.
 - **`response_format=json_object` isn't a guarantee** on free-tier models — keep the parse chain + repair call; don't assume clean JSON.
-- **Timeout must be bounded** (`LLM_TIMEOUT_SECONDS`) or a hung provider blocks a threadpool worker. Pass `timeout=` to httpx explicitly.
+- **Timeout must be bounded twice**: per call (`LLM_TIMEOUT_SECONDS`) *and* overall (`LLM_TOTAL_BUDGET_SECONDS`, which the repair calls also draw from). The client-side 45 s cap only works if the server finishes in ~35 s.
+- **The request holds a pooled DB connection for the whole LLM call.** Fine at this scale (pool bounded in Phase 02), but it is why the budget matters: five concurrent slow AI calls = the whole pool.
 - **Truncate notes** before prompting (8000 chars) to avoid context-limit errors on free models.
 - **Sentiment normalisation:** models return "Positive"/"POSITIVE"/"mixed". Lowercase; map unknown → neutral in the validator, don't 500.
 - **Persist raw_response even on success** is optional but persist it on failure — it's your debugging lifeline and a spec requirement.
 - **Don't call the LLM inside the DB transaction** that holds the interaction/pending-insight insert; that transaction is already committed in Phase 05's create. Load the pending row, call the LLM, then a second commit updates the row to completed/failed.
 
 ## Test (final task of this phase — written in context)
-- `backend/tests/test_ai.py`: **provider failover + malformed-JSON repair.** Monkeypatch `GroqProvider.complete` and `CerebrasProvider.complete` (the provider boundary, not httpx). First provider raises, second returns valid JSON → insight `completed` with `provider="cerebras"`. Both fail → interaction created 201, insight `status="failed"` persisted (row exists, not null), no 5xx. A provider returns non-JSON then the repair call also fails → `status="failed"`, not a 500. No test performs a real external HTTP call.
+- `backend/tests/test_ai.py`: **provider failover + malformed-JSON repair.** Monkeypatch `GroqProvider.complete` and `CerebrasProvider.complete` (the provider boundary, not httpx). Both providers exist only because `conftest.py` sets dummy keys — with empty keys they are never constructed and the patch would silently do nothing. First provider raises, second returns valid JSON → insight `completed` with `provider="cerebras"`. Both fail → interaction created 201, insight `status="failed"` persisted (row exists, not null), no 5xx. A provider returns non-JSON then the repair call also fails → `status="failed"`, not a 500. No test performs a real external HTTP call.
