@@ -54,10 +54,18 @@ class Settings(BaseSettings):
     # `docker compose up` with no LLM account). A provider with an empty key is
     # skipped; with none configured, insights are stored as status=failed with
     # error_message="no LLM provider configured".
+    # Model defaults: llama-3.3-70b-versatile (Groq, shut down 08/16/26 for
+    # free/dev tier) and llama-3.3-70b (Cerebras, shut down 2026-02-16) are
+    # both decommissioned — confirmed live (404 model_not_found on both APIs,
+    # 2026-08-25). openai/gpt-oss-120b is each provider's own recommended
+    # replacement (same family, available on both). Verified live end-to-end
+    # on Groq (real completion, insight status=completed); Cerebras's key
+    # still needs billing set up on that account (402 payment_required) —
+    # an account-console fix, not a code issue.
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     CEREBRAS_API_KEY: str = ""
-    CEREBRAS_MODEL: str = "llama-3.3-70b"
+    CEREBRAS_MODEL: str = "gpt-oss-120b"
     LLM_PROVIDER_ORDER: str = "groq,cerebras"
     LLM_TIMEOUT_SECONDS: int = 15  # per HTTP call
     # Overall deadline across ALL providers and repair calls for one insight, so
