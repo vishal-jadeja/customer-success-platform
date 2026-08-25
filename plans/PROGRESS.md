@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 01 follow-up (senior review) → then 02 — Models, migration, seed
+**Current phase:** 03 — Auth + RBAC + errors + logging + first deploy (02 done, uncommitted)
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -25,17 +25,17 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `.env.example`: local `COOKIE_SECURE=false`; document new settings; LLM keys marked optional
 
 ## Phase 02 — Models, migration, seed
-- [ ] `app/db.py` — engine (`pool_size=5, max_overflow=5`), `SessionLocal`, `get_db` dependency
-- [ ] `app/models/` — user, refresh_token, customer, interaction, insight (no customer_assignment)
-- [ ] Python enums shared with DB enums (no AccountRole)
-- [ ] `alembic init`, configure `env.py` to import Base + read `DATABASE_URL`
-- [ ] Generate + hand-verify initial migration (enums have `CREATE TYPE`); `customers.owner_id` ON DELETE RESTRICT
-- [ ] `alembic upgrade head` succeeds; downgrade/upgrade round-trip clean
-- [ ] `scripts/seed.py` — users (all roles), customers across owners, interactions, insights `status=completed` `provider='seed'` `latency_ms=NULL`, written directly
-- [ ] Seed runs idempotently
+- [x] `app/db.py` — engine (`pool_size=5, max_overflow=5`), `SessionLocal`, `get_db` dependency
+- [x] `app/models/` — user, refresh_token, customer, interaction, insight (no customer_assignment)
+- [x] Python enums shared with DB enums (no AccountRole)
+- [x] `alembic init`, configure `env.py` to import Base + read `DATABASE_URL`
+- [x] Generate + hand-verify initial migration (enums have `CREATE TYPE`); `customers.owner_id` ON DELETE RESTRICT
+- [x] `alembic upgrade head` succeeds; downgrade/upgrade round-trip clean
+- [x] `scripts/seed.py` — users (all roles), customers across owners, interactions, insights `status=completed` `provider='seed'` `latency_ms=NULL`, written directly
+- [x] Seed runs idempotently
 
 ## Phase 03 — Auth + RBAC + errors + logging + first deploy
-- [ ] `app/core/security.py` — hash/verify password (**bcrypt directly, no passlib**), encode/decode JWT
+- [~] `app/core/security.py` — hash/verify password (**landed in Phase 02** for the seed; JWT still todo) (**bcrypt directly, no passlib**), encode/decode JWT
 - [ ] `app/core/exceptions.py` — AppError hierarchy
 - [ ] `app/core/errors.py` — exception handlers → JSON envelope; `IntegrityError`→409 (unique email + ON DELETE RESTRICT)
 - [ ] `app/core/logging.py` — request-id contextvar + filter + structured formatter
