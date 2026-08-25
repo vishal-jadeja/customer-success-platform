@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 04 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 05 (Interactions).**
+**Current phase:** 05 — DONE (code + tests verified locally; not yet redeployed to Render — Phase 12 handles re-deploy). Backend/frontend from Phase 03 still live on Render/Vercel. **Next: Phase 06 (AI pipeline).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -69,12 +69,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Found+fixed during implementation: `PageParams` as a `@dataclass` sub-dependency broke under this file's `from __future__ import annotations` (FastAPI double-wrapped the still-string annotation); switched to a plain class with `Query(default, ...)`-style defaults on `__init__`.
 
 ## Phase 05 — Interactions
-- [ ] `app/schemas/interaction.py` + minimal `schemas/insight.py` `InsightOut` (id, status, error_message)
-- [ ] `app/repositories/interaction.py` — scope via parent customer
-- [ ] `app/services/interaction_service.py`
-- [ ] `create` inserts interaction **+ pending insight row in one transaction** (no LLM here)
-- [ ] `app/api/v1/routers/interactions.py` — CRUD, nested list, filters
-- [ ] Access to interaction inherits customer scope
+- [x] `app/schemas/interaction.py` (create/update/out) + minimal `schemas/insight.py` `InsightOut` (id, status, error_message)
+- [x] `app/repositories/interaction.py` — scope inherited via join + `apply_customer_scope` reused from Phase 04 (no reimplementation); filters customer_id/type/sentiment/date_from/date_to/q
+- [x] `app/services/interaction_service.py` — view/create scoped via `CustomerService._assert_can_access`; update = author-or-admin/manager; delete = admin/manager only (route + service)
+- [x] `create` inserts interaction **+ pending insight row in one transaction**, single commit, no LLM call (Phase 06 wires generation)
+- [x] `app/api/v1/routers/interactions.py` — flat CRUD (`router`) + nested `customer_router` (`/customers/{id}/interactions`), both wired into `main.py`; no SQLAlchemy in the router
+- [x] Access to interaction inherits customer scope for view/create; update/delete follow the separate author/role rule per the RBAC matrix (not customer ownership)
+- [x] **Test:** `test_interactions.py` (9 tests: create on owned/non-owned, notes<20 chars→422, nested list scoped + 403, type/date-range filters, manager-deletes/csm-403, author-update-rule, manager-can-update-any). 36/36 backend tests pass; `ruff check .` clean; layering gate empty. Verified live against seeded dev DB (create→pending insight, nested list count, csm-delete-403, manager-delete-204).
 
 ## Phase 06 — AI pipeline
 - [ ] `app/schemas/insight.py` — `InsightPayload`, read schema

@@ -39,7 +39,7 @@ from app.core import redis as redis_module  # noqa: E402
 from app.core.deps import get_db  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Customer, Role, User  # noqa: E402
+from app.models import Customer, Insight, Interaction, Role, User  # noqa: E402
 
 
 def _ensure_test_database(url: str) -> None:
@@ -182,6 +182,30 @@ def customer_of_csm(db: Session, csm: User) -> Customer:
 @pytest.fixture
 def customer_of_csm2(db: Session, csm2: User) -> Customer:
     return make_customer(db, csm2)
+
+
+def make_interaction(
+    db: Session, customer: Customer, author: User, **overrides: object
+) -> Interaction:
+    from app.models import InteractionType
+
+    defaults: dict[str, object] = {
+        "customer_id": customer.id,
+        "user_id": author.id,
+        "type": InteractionType.meeting,
+        "title": "Sync",
+        "notes": "Notes that are long enough to pass the 20 char minimum.",
+        "occurred_at": datetime.now(UTC),
+    }
+    defaults.update(overrides)
+    interaction = Interaction(**defaults)
+    db.add(interaction)
+    db.flush()
+    insight = Insight(interaction_id=interaction.id)
+    db.add(insight)
+    db.flush()
+    db.commit()
+    return interaction
 
 
 def token_for(user: User) -> str:

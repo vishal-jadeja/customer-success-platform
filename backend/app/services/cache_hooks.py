@@ -9,3 +9,7 @@ from __future__ import annotations
 
 def invalidate_customers() -> None:
     """Bump ``csp:ver:customers`` (+ ``dashboard``) once Phase 07 lands."""
+
+
+def invalidate_interactions() -> None:
+    """Bump ``csp:ver:interactions`` (+ ``dashboard``) once Phase 07 lands."""
