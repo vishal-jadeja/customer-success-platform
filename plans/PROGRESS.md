@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 03 — Auth + RBAC + errors + logging + first deploy (02 done, uncommitted)
+**Current phase:** 03 — code + tests done, uncommitted; deploy sub-tasks blocked on dashboard access (see Blocked / notes) → then 04
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -35,24 +35,26 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Seed runs idempotently
 
 ## Phase 03 — Auth + RBAC + errors + logging + first deploy
-- [~] `app/core/security.py` — hash/verify password (**landed in Phase 02** for the seed; JWT still todo) (**bcrypt directly, no passlib**), encode/decode JWT
-- [ ] `app/core/exceptions.py` — AppError hierarchy
-- [ ] `app/core/errors.py` — exception handlers → JSON envelope; `IntegrityError`→409 (unique email + ON DELETE RESTRICT)
-- [ ] `app/core/logging.py` — request-id contextvar + filter + structured formatter
-- [ ] `app/core/middleware.py` — request-id middleware
-- [ ] `app/core/ratelimit.py` — slowapi Limiter keyed on `X-Forwarded-For` first hop, `enabled=RATE_LIMIT_ENABLED`; `10/minute` on `POST /auth/login`
-- [ ] `app/core/redis.py` — client + fail-open wrapper
-- [ ] `app/repositories/user.py`, `refresh_token.py`
-- [ ] `app/services/auth_service.py` — register, login, refresh (rotation + reuse detection with 10 s grace window), logout
-- [ ] `tests/conftest.py` — test DB (`csp_test`, alembic once, per-test rollback, `get_db` override), fakeredis, rate-limit off, role fixtures + `token_for`
-- [ ] `app/core/deps.py` — `get_current_user`, `require_roles`
-- [ ] `app/api/v1/routers/auth.py`
-- [ ] Cookie set/clear helpers (httpOnly, Secure, **SameSite=Lax, no Domain**, Path=/api/v1/auth)
-- [ ] Register→login→me→refresh→logout works via curl
-- [ ] **Test:** reuse of revoked refresh token → family revoked, 401 (`test_auth.py`)
-- [ ] **Deploy:** skeleton backend on Render (native Python runtime) + Neon + Upstash; `/healthz` green on Render URL
-- [ ] **Deploy:** minimal Next.js on Vercel with `next.config.js` proxy rewrite + `BACKEND_URL`
-- [ ] **Deploy:** one login round-trip verified against the deployed URLs (first-party cookie)
+- [x] `app/core/security.py` — hash/verify password (**bcrypt directly, no passlib**), encode/decode JWT, refresh token hash
+- [x] `app/core/exceptions.py` — AppError hierarchy
+- [x] `app/core/errors.py` — exception handlers → JSON envelope; `IntegrityError`→409 (unique email + ON DELETE RESTRICT); also HTTPException/RequestValidationError/RateLimitExceeded/Exception
+- [x] `app/core/logging.py` — request-id contextvar + filter + structured formatter
+- [x] `app/core/middleware.py` — pure-ASGI request-id middleware (contextvar-safe)
+- [x] `app/core/ratelimit.py` — slowapi Limiter keyed on `X-Forwarded-For` first hop, `enabled=RATE_LIMIT_ENABLED`; `10/minute` on `POST /auth/login`
+- [x] `app/core/redis.py` — client + fail-open wrapper (safe_get/setex/incr/ping)
+- [x] `app/repositories/user.py`, `refresh_token.py`
+- [x] `app/services/auth_service.py` — register, login, refresh (rotation + reuse detection with 10 s grace window), logout, update_me
+- [x] `tests/conftest.py` — test DB (`csp_test`, auto-created + alembic once, per-test savepoint rollback, `get_db` override), fakeredis, rate-limit off, role fixtures + `token_for`
+- [x] `app/core/deps.py` — `get_current_user`, `require_roles`
+- [x] `app/api/v1/routers/auth.py`
+- [x] **Added beyond spec (user's call):** `/users` admin router (`GET/POST /users`, `PATCH/DELETE /users/{id}`) — `app/schemas/{common,user}.py`, `app/services/user_service.py`, `app/api/v1/routers/users.py`; self-demote/self-deactivate blocked → 409
+- [x] Cookie set/clear helpers (httpOnly, Secure, **SameSite=Lax, no Domain**, Path=/api/v1/auth)
+- [x] Register→login→me→refresh→logout works via curl (verified manually, see below)
+- [x] **Test:** reuse of revoked refresh token → family revoked, 401 (`test_auth.py`) — plus `test_users.py` for `/users` RBAC. 13/13 pass.
+- [x] Minimal Next.js skeleton (`frontend/`) — proxy rewrite (`next.config.ts`), login→`/auth/me` page; build+eslint+tsc clean; proxy round-trip verified locally (cookie lands on the frontend origin, not the backend's)
+- [ ] **Deploy:** skeleton backend on Render (native Python runtime) + Neon + Upstash; `/healthz` green on Render URL — **blocked on dashboard access, see notes below**
+- [ ] **Deploy:** minimal Next.js on Vercel with `next.config.ts` proxy rewrite + `BACKEND_URL` — **blocked on dashboard access**
+- [ ] **Deploy:** one login round-trip verified against the deployed URLs (first-party cookie) — **blocked on dashboard access**
 
 ## Phase 04 — Customers
 - [ ] `app/schemas/customer.py` — create/update/read/list
@@ -148,4 +150,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ---
 
 ## Blocked / notes
-- _(none yet)_
+- **Phase 03 deploy (Render + Neon + Upstash + Vercel) is code-complete but not executed.** No `vercel`/`render` CLI here and I can't create third-party accounts. Runbook (drive from your dashboards, paste only the resulting URLs back, never secrets):
+  1. Push `main` to the existing `origin` (github.com/vishal-jadeja/customer-success-platform) — ask before I push.
+  2. **Neon**: new project → copy the **pooled** connection string, append `?sslmode=require`, scheme `postgresql+psycopg2://`.
+  3. **Upstash**: new Redis DB → copy the `rediss://` URL.
+  4. **Render**: new Web Service, native Python, root dir `backend`, build `pip install .`, start `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`, health check `/healthz`. Env: `DATABASE_URL` (Neon), `REDIS_URL` (Upstash), `JWT_SECRET` (`python -c "import secrets;print(secrets.token_urlsafe(48))"`), `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`, `CORS_ORIGINS=<vercel-url-once-known>`, `ENV=prod`.
+  5. **Vercel**: import repo, root dir `frontend`, env `BACKEND_URL=<render-url>` (server-side, NOT `NEXT_PUBLIC_`).
+  6. Verify: `curl https://<render>/healthz` → `db/redis: ok`; open the Vercel URL, log in, DevTools confirms the `Set-Cookie` is on the Vercel host with `Secure; SameSite=Lax; Path=/api/v1/auth`, no `Domain`, and no request hits the Render domain.
+  7. Optionally seed prod now: `DATABASE_URL=<neon-url> python scripts/seed.py` (run locally — Render free has no shell).
+  Once URLs exist, tell me and I'll verify the round-trip and tick the three deploy items.

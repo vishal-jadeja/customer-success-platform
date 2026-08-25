@@ -21,6 +21,7 @@ dependencies = [
     "httpx==0.28.1",
     "slowapi==0.1.9",
     "python-multipart==0.0.20",
+    "email-validator==2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -39,3 +40,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error::DeprecationWarning:app.*"]
