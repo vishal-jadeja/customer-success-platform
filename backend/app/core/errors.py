@@ -31,13 +31,20 @@ _HTTP_CODES = {
 }
 
 
-def envelope(status: int, code: str, message: str, details: Any = None) -> JSONResponse:
+def envelope(
+    status: int,
+    code: str,
+    message: str,
+    details: Any = None,
+    *,
+    request_id: str | None = None,
+) -> JSONResponse:
     body = {
         "error": {
             "code": code,
             "message": message,
             "details": details,
-            "request_id": request_id_var.get(),
+            "request_id": request_id or request_id_var.get(),
         }
     }
     return JSONResponse(status_code=status, content=body)
@@ -87,6 +94,17 @@ def register_error_handlers(app: FastAPI) -> None:
         return envelope(429, "RATE_LIMITED", f"Rate limit exceeded: {exc.detail}")
 
     @app.exception_handler(Exception)
-    async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
-        logger.exception("unhandled error: %s", exc)
-        return envelope(500, "INTERNAL_ERROR", "Internal server error")
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        # Starlette runs this handler in ServerErrorMiddleware, OUTSIDE
+        # RequestIDMiddleware: the contextvar is already reset and the response
+        # header hook is gone. Recover the id from request.state (stashed by
+        # the middleware) so the log line, body and header still carry it.
+        request_id = getattr(request.state, "request_id", None) or request_id_var.get()
+        token = request_id_var.set(request_id)
+        try:
+            logger.exception("unhandled error: %s", exc)
+        finally:
+            request_id_var.reset(token)
+        response = envelope(500, "INTERNAL_ERROR", "Internal server error", request_id=request_id)
+        response.headers["X-Request-ID"] = request_id
+        return response

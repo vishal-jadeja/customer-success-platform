@@ -12,7 +12,7 @@ import logging
 from functools import lru_cache
 from typing import Annotated
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -76,15 +76,14 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    @field_validator("CORS_ORIGINS", mode="after")
-    @classmethod
-    def _warn_empty_cors(cls, v: list[str], info) -> list[str]:  # noqa: ANN001
-        # In non-dev an empty origins list is almost certainly a misconfig. Warn,
-        # do not raise — CORS is not load-bearing behind the proxy.
-        env = info.data.get("ENV", "dev")
-        if env != "dev" and not v:
-            logger.warning("CORS_ORIGINS is empty in ENV=%s; /docs may be unreachable", env)
-        return v
+    @model_validator(mode="after")
+    def _warn_empty_cors(self) -> Settings:
+        # Model-level (not field-level) so ENV is populated regardless of field
+        # order. In non-dev an empty origins list is almost certainly a
+        # misconfig. Warn, do not raise — CORS is not load-bearing behind the proxy.
+        if self.ENV != "dev" and not self.CORS_ORIGINS:
+            logger.warning("CORS_ORIGINS is empty in ENV=%s; /docs may be unreachable", self.ENV)
+        return self
 
 
 @lru_cache

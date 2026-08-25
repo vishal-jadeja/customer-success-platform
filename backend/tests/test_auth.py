@@ -94,6 +94,31 @@ def test_refresh_reuse_past_grace_window_revokes_family(client: TestClient, db: 
     client.cookies.set("refresh_token", new_cookie)
     now_dead = client.post("/api/v1/auth/refresh")
     assert now_dead.status_code == 401
+    # It was revoked seconds ago by the family wipe, so it reads as a race; the
+    # client's single retry gets the same answer and falls back to /login.
+    assert now_dead.json()["error"]["code"] == "REFRESH_RACE"
+
+
+def test_unhandled_exception_envelope_keeps_request_id(db: Session) -> None:
+    """500s are built by Starlette's ServerErrorMiddleware, outside our request-id
+    middleware — make sure the id still reaches the body and header."""
+    from fastapi.testclient import TestClient as _TC
+
+    from app.main import app
+
+    path = "/_test_boom"
+    if not any(getattr(r, "path", None) == path for r in app.routes):
+
+        @app.get(path)
+        def _boom() -> None:
+            raise RuntimeError("kaboom")
+
+    with _TC(app, raise_server_exceptions=False) as c:
+        r = c.get(path, headers={"X-Request-ID": "rid-test-500"})
+    assert r.status_code == 500
+    assert r.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert r.json()["error"]["request_id"] == "rid-test-500"
+    assert r.headers["x-request-id"] == "rid-test-500"
 
 
 def test_me_requires_bearer_token(client: TestClient) -> None:

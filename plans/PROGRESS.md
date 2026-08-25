@@ -51,6 +51,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Cookie set/clear helpers (httpOnly, Secure, **SameSite=Lax, no Domain**, Path=/api/v1/auth)
 - [x] Register→login→me→refresh→logout works via curl (verified manually, see below)
 - [x] **Test:** reuse of revoked refresh token → family revoked, 401 (`test_auth.py`) — plus `test_users.py` for `/users` RBAC. 13/13 pass.
+- [x] **Senior review pass (post-03):** 500 envelope now carries request id (header + body + log line); CORS-empty warning moved to a model validator; `/auth/refresh` takes a `FOR UPDATE` row lock; seed CSM password ≥8 chars; `next.config.ts` throws if `BACKEND_URL` unset at build; master plan login limit aligned to 10/min. 14/14 pass.
 - [x] Minimal Next.js skeleton (`frontend/`) — proxy rewrite (`next.config.ts`), login→`/auth/me` page; build+eslint+tsc clean; proxy round-trip verified locally (cookie lands on the frontend origin, not the backend's)
 - [ ] **Deploy:** skeleton backend on Render (native Python runtime) + Neon + Upstash; `/healthz` green on Render URL — **blocked on dashboard access, see notes below**
 - [ ] **Deploy:** minimal Next.js on Vercel with `next.config.ts` proxy rewrite + `BACKEND_URL` — **blocked on dashboard access**

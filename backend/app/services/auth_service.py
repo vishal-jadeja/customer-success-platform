@@ -71,7 +71,9 @@ class AuthService:
         if not raw:
             raise AuthError("Missing refresh token")
         now = datetime.now(UTC)
-        token: RefreshToken | None = self.tokens.get_by_hash(hash_refresh_token(raw))
+        token: RefreshToken | None = self.tokens.get_by_hash(
+            hash_refresh_token(raw), for_update=True
+        )
         if token is None:
             raise AuthError("Invalid refresh token")
 

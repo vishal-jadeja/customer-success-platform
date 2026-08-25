@@ -30,9 +30,6 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     register_error_handlers(app)
 
-    # Outermost so every response (incl. error handlers) carries X-Request-ID.
-    app.add_middleware(RequestIDMiddleware)
-
     # CORS is NOT load-bearing: the browser only ever reaches the backend through
     # the same-origin Next.js proxy (see plans/01). This allows Render's /docs to
     # be opened directly cross-origin during development/debugging.
@@ -44,6 +41,12 @@ def create_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    # Added last => outermost (add_middleware prepends), so every response,
+    # including CORS preflights and handled errors, carries X-Request-ID.
+    # (Unhandled 500s are built in Starlette's ServerErrorMiddleware, outside
+    # this stack — errors.py recovers the id from request.state for those.)
+    app.add_middleware(RequestIDMiddleware)
 
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")

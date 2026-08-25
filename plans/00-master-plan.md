@@ -164,7 +164,7 @@ Prefix `/api/v1`. Auth: `–` public · `A` access token · `C` refresh cookie.
 | Method | Path | Auth | Roles | Purpose |
 |---|---|---|---|---|
 | POST | /auth/register | – | – | Signup. Role forced `csm`. |
-| POST | /auth/login | – | – | Access token + user; set refresh cookie. `slowapi` rate-limited (5/min per IP) |
+| POST | /auth/login | – | – | Access token + user; set refresh cookie. `slowapi` rate-limited (10/min per client IP) |
 | POST | /auth/refresh | C | – | Rotate refresh, new access |
 | POST | /auth/logout | C | – | Revoke + clear cookie, 204 |
 | GET | /auth/me | A | any | Profile |

@@ -42,7 +42,7 @@ from app.models import (  # noqa: E402
 
 # --- Demo accounts (README-facing) -----------------------------------------
 ADMIN_EMAIL = "admin@csp.demo"
-PASSWORDS = {Role.admin: "Admin123!", Role.manager: "Manager123!", Role.csm: "Csm123!"}
+PASSWORDS = {Role.admin: "Admin123!", Role.manager: "Manager123!", Role.csm: "Csm12345!"}
 USERS = [
     ("admin@csp.demo", "Avery Admin", Role.admin),
     ("manager1@csp.demo", "Morgan Lee", Role.manager),
