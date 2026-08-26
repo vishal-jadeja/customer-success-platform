@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 11 — DONE (both images build clean, full 4-service stack verified healthy on fresh volumes incl. a genuine from-scratch `alembic upgrade head`, login/refresh/dashboard round-tripped end-to-end through the containerized proxy). Backend/frontend from Phase 03 still live on Render/Vercel (unaffected — Docker is a separate local/grading path). **Next: Phase 12 (Re-deploy + verify).**
+**Current phase:** 12 — DONE (Render/Vercel were already serving the full app from Phase 03's auto-deploy by the time this phase started; the real work was adding the previously-missing LLM env vars, rotating `JWT_SECRET`, and pushing the one outstanding local commit, then verifying all of it live). **Next: Phase 13 (README + demo + verification).**
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -8,6 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ---
 
 ## Phase 01 — Scaffold, config, Compose
+
 - [x] Create `backend/` and `frontend/` top-level dirs
 - [x] `backend/pyproject.toml` (or requirements.txt) with pinned deps (incl. `slowapi`)
 - [x] `backend/app/` package tree (core, api, services, repositories, models, schemas, llm)
@@ -20,11 +21,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Boot uvicorn locally, `GET /healthz` → 200
 
 ### Phase 01 follow-up (senior review)
+
 - [x] `config.py`: LLM keys/models optional (`""`); add `LLM_TOTAL_BUDGET_SECONDS=35`, `RATE_LIMIT_ENABLED=True`, `REFRESH_REUSE_GRACE_SECONDS=10`
 - [x] `pyproject.toml`: `passlib[bcrypt]` → `bcrypt`; add `fakeredis` to dev
 - [x] `.env.example`: local `COOKIE_SECURE=false`; document new settings; LLM keys marked optional
 
 ## Phase 02 — Models, migration, seed
+
 - [x] `app/db.py` — engine (`pool_size=5, max_overflow=5`), `SessionLocal`, `get_db` dependency
 - [x] `app/models/` — user, refresh_token, customer, interaction, insight (no customer_assignment)
 - [x] Python enums shared with DB enums (no AccountRole)
@@ -35,6 +38,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Seed runs idempotently
 
 ## Phase 03 — Auth + RBAC + errors + logging + first deploy
+
 - [x] `app/core/security.py` — hash/verify password (**bcrypt directly, no passlib**), encode/decode JWT, refresh token hash
 - [x] `app/core/exceptions.py` — AppError hierarchy
 - [x] `app/core/errors.py` — exception handlers → JSON envelope; `IntegrityError`→409 (unique email + ON DELETE RESTRICT); also HTTPException/RequestValidationError/RateLimitExceeded/Exception
@@ -58,6 +62,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Deploy:** login round-trip verified against deployed URLs — first-party cookie `refresh_token; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth`, no Domain, set on the Vercel host; proxy `/api/v1/auth/me` returns backend envelope. Prod DB seeded (6 users).
 
 ## Phase 04 — Customers
+
 - [x] `app/schemas/customer.py` — create/update/list-item/out; `app/schemas/common.py` gains `PageParams`
 - [x] `app/repositories/customer.py` — `apply_customer_scope` (owner_id==self), list/get/count_interactions/create/update/delete; unique-email `IntegrityError` propagates to the existing global 409 handler (no pre-check) — matches the Phase 03 `UserRepository` pattern, not a repo-level catch
 - [x] `app/services/customer_service.py` — `_assert_can_access` (own = owner_id==self), `_resolve_owner_id` (csm forced-self/403 on other; admin/manager free, validated via `UserRepository`)
@@ -69,6 +74,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Found+fixed during implementation: `PageParams` as a `@dataclass` sub-dependency broke under this file's `from __future__ import annotations` (FastAPI double-wrapped the still-string annotation); switched to a plain class with `Query(default, ...)`-style defaults on `__init__`.
 
 ## Phase 05 — Interactions
+
 - [x] `app/schemas/interaction.py` (create/update/out) + minimal `schemas/insight.py` `InsightOut` (id, status, error_message)
 - [x] `app/repositories/interaction.py` — scope inherited via join + `apply_customer_scope` reused from Phase 04 (no reimplementation); filters customer_id/type/sentiment/date_from/date_to/q
 - [x] `app/services/interaction_service.py` — view/create scoped via `CustomerService._assert_can_access`; update = author-or-admin/manager; delete = admin/manager only (route + service)
@@ -76,9 +82,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] `app/api/v1/routers/interactions.py` — flat CRUD (`router`) + nested `customer_router` (`/customers/{id}/interactions`), both wired into `main.py`; no SQLAlchemy in the router
 - [x] Access to interaction inherits customer scope for view/create; update/delete follow the separate author/role rule per the RBAC matrix (not customer ownership)
 - [x] **Test:** `test_interactions.py` (9 tests: create on owned/non-owned, notes<20 chars→422, nested list scoped + 403, type/date-range filters, manager-deletes/csm-403, author-update-rule, manager-can-update-any). 36/36 backend tests pass; `ruff check .` clean; layering gate empty. Verified live against seeded dev DB (create→pending insight, nested list count, csm-delete-403, manager-delete-204).
-  - *(Phase 06 note: the "pending insight" test above was renamed to `test_csm_creates_on_owned_customer_insight_row_exists` and now runs with `AI_ENABLED=False` monkeypatched, since Phase 06 made generation run inline before the response returns — the row is no longer observably `pending` from the API by the time the client sees it.)*
+  - _(Phase 06 note: the "pending insight" test above was renamed to `test_csm_creates_on_owned_customer_insight_row_exists` and now runs with `AI_ENABLED=False` monkeypatched, since Phase 06 made generation run inline before the response returns — the row is no longer observably `pending` from the API by the time the client sees it.)_
 
 ## Phase 06 — AI pipeline
+
 - [x] `app/schemas/insight.py` — `InsightPayload` (sentiment normalized to positive/neutral/negative, unknown→neutral), full `InsightOut`
 - [x] `app/llm/base.py` — `LLMProvider` protocol, `LLMResult`, `OpenAICompatibleProvider` (shared httpx call shape), typed errors (`LLMTimeoutError`/`LLMHTTPError`/`LLMAuthError`)
 - [x] `app/llm/groq.py`, `app/llm/cerebras.py` — thin subclasses (base_url + name only); per-call timeout passed explicitly
@@ -91,16 +98,18 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Test:** `test_ai.py` (4 tests, provider boundary monkeypatched, no real HTTP call: Groq-fails→Cerebras-succeeds incl. sentiment case-normalization, both-fail→201/failed, unrecoverable-malformed-JSON→failed not 500, regenerate flips failed→completed). 40/40 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified end-to-end against real Groq/Cerebras with intentionally-invalid dummy keys: 201, `insight.status=failed`, `error_message` set, `attempts` increments across regenerate calls, never a 500.
 
 ## Phase 07 — Dashboard + cache
+
 - [x] `app/core/cache.py` — versioned key build (`scope_for`/`build_key`), `get_json`/`set_json` (custom encoder: Decimal→str, UUID→str, datetime/date→isoformat), `invalidate` (namespace-global INCR), fail-open via the existing Phase 03 `safe_*` wrappers
 - [x] `app/repositories/dashboard.py` — `summary`/`sentiment_trend`/`at_risk`, all built on `apply_customer_scope` (Phase 04, reused directly — no reimplementation)
 - [x] `app/services/dashboard_service.py` — cache-or-query orchestration, TTLs 120s/300s/120s
 - [x] `app/api/v1/routers/dashboard.py` — `/summary`, `/sentiment-trend`, `/at-risk`, all `CurrentUser`-scoped (no role gate — scoping not role-gating, per the RBAC matrix)
 - [x] Wired cache invalidation into customer/interaction/insight writes — `services/cache_hooks.py` stubs replaced with real `invalidate("customers"/"interactions"/"dashboard")`; zero changes needed to `customer_service.py`/`interaction_service.py`/`insight_service.py` since they already called the stub functions at every write site since Phase 04–06
 - [x] Decimal/UUID/datetime JSON serialization for cache — custom `_CacheEncoder`, tested directly
-- [x] **Found+fixed during implementation:** the version-key default-on-miss was originally `1` (matching what a first `INCR` on a missing key produces) — but that meant the *first-ever* `invalidate()` on a namespace nobody had read yet landed on the same version number a fresh read had already assumed, so the key didn't change and the cache silently kept serving pre-write data. Fixed by defaulting the miss-case to `0` instead (a real test caught this: `test_customer_write_invalidates_dashboard_cache` failed before the fix).
+- [x] **Found+fixed during implementation:** the version-key default-on-miss was originally `1` (matching what a first `INCR` on a missing key produces) — but that meant the _first-ever_ `invalidate()` on a namespace nobody had read yet landed on the same version number a fresh read had already assumed, so the key didn't change and the cache silently kept serving pre-write data. Fixed by defaulting the miss-case to `0` instead (a real test caught this: `test_customer_write_invalidates_dashboard_cache` failed before the fix).
 - [x] **Test:** `test_cache.py` (8 tests: encoder round-trip, version-bump changes the key, scope is in the key, cache-hit avoids a second repo call, customer-write invalidates the dashboard cache with fresh numbers, csm-scoped vs admin-global, Redis-down still 200, at-risk ordering). 48/48 backend tests pass; `ruff check .` clean; layering gate empty. Live-verified: miss→hit, write→fresh MISS (16→17 customers), admin(17) vs csm1(5) scope isolation, at-risk ascending health, sentiment-trend grouped by day, `docker compose stop redis` → dashboard still 200 with correct data.
 
 ## Phase 08 — Frontend foundation
+
 - [x] `next.config.ts` rewrite + `output:'standalone'` gate carried from Phase 03 skeleton, untouched
 - [x] `lib/axios.ts` — **baseURL='/api/v1' (relative), no withCredentials**, 15s global timeout (45s/60s overrides are plain per-call config, no special plumbing needed); request interceptor injects the in-memory token; response interceptor does single-flight refresh-on-401 via a dynamic `import("@/store")` (breaks the axios↔store circular import cleanly)
 - [x] `store/` — `configureStore`, typed `useAppDispatch`/`useAppSelector`, `authSlice`
@@ -113,6 +122,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Verification:** `next build` clean (5 routes generated); `tsc --noEmit` clean; full manual e2e via Chrome automation — register→auto-login→landed on `/`, no app token in localStorage/sessionStorage, hard reload still authenticated with exactly one `/auth/refresh` call (network-tab confirmed), profile name-change updates the header instantly with no reload, wrong current_password → inline field error not a crash, wrong login password → inline error, logout → redirect to `/login`, hitting `/profile` post-logout bounces back to `/login`. `npm run lint` is broken pre-existing (ESLint 9.39.5 + eslint-config-next 16.3.3 FlatCompat circular-JSON crash on config load, confirmed present before this session's changes) — not a Phase 08 regression; `next build` (what Vercel actually runs) is unaffected and is the meaningful gate.
 
 ## Phase 09 — Frontend customers + interactions
+
 - [x] `zod` schemas mirroring backend (`schemas/customer.ts`, `schemas/interaction.ts`) — both export the raw pre-coercion input type alongside the parsed output type (`z.input`/`z.infer`), needed because `health_score`/`duration_minutes` use `z.coerce`/`z.preprocess` and RHF 7's resolver typing requires the two to be threaded through `useForm<Raw, unknown, Parsed>` separately, or `tsc` fails
 - [x] `customersSlice` (fetchCustomers/fetchCustomer/create/update/delete, normalised entities/ids, `filters` mirrors last query) + list page (filter bar: q/status/industry/health range/sort/order, pagination, row click → detail)
 - [x] customer detail page (owner + nested interaction list via `fetchForCustomer`) — no account-team UI; inline "You don't have access" on 403 instead of a crash
@@ -125,6 +135,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **Verification:** `tsc --noEmit` clean, `next build` clean (13 routes). Full manual e2e via Chrome automation across **admin** and **csm1**: customer list scoped correctly (17 total for admin vs 5 owned for csm1), filter+sort+pagination issue correct params (verified sentiment=negative filter), customer/interaction detail pages render all fields incl. owner and nested/insight data, edit interaction saves and redirects, create customer with a duplicate email → inline email field error (not a toast), create with a unique email succeeds and redirects to detail, csm create omits the owner selector and the created customer is self-owned, csm direct-nav to a non-owned customer id → inline "You don't have access" (no crash), csm viewing a manager-authored interaction on an owned customer sees no Edit link (author rule, not ownership — confirmed via a direct DB-backed lookup of a manager-authored row on a csm-owned customer), create-interaction → inline notes<20-chars zod error blocks submit client-side, then a valid submission runs the live AI pipeline end-to-end (Groq) and lands on the detail page with a real insight.
 
 ## Phase 10 — Frontend AI panel + dashboard
+
 - [x] `lib/colors.ts` (single sentiment/status→colour map, Tailwind classes + Recharts hex) + `lib/format.ts` (currency/count/health formatters) + `components/insights/SentimentBadge.tsx` — replaces the three independent `SENTIMENT_STYLES`/`STATUS_STYLES` copies that had accumulated across Phase 09 (interaction detail inline block, `InteractionList`, `CustomerTable`, customer detail page)
 - [x] `interactionsSlice`: `regenerateInsight` thunk (`POST /interactions/{id}/insight/regenerate`, 45s per-request timeout override — axios's global 15s timeout is shorter than the backend's 35s `LLM_TOTAL_BUDGET_SECONDS`, a latent bug also fixed on `createInteraction` since it runs the same inline AI pipeline) + per-id `regeneratingIds`/`regenerateErrors` (not a global flag, so one row regenerating never disables a sibling's Retry)
 - [x] `components/insights/InsightPanel.tsx` — one component, two chrome variants (`full`/`compact`): completed (summary + `SentimentBadge` + action items + risks, empty lists render "No action items suggested." rather than vanishing) / failed (red block, real `error_message`, Retry) / pending / null-as-pending. A fulfilled regenerate with `insight.status==="failed"` is handled as a normal state flip, not an error — the endpoint returns 200 even when generation itself fails (confirmed in `InsightService`)
@@ -144,45 +155,45 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   - Users page: admin sees all 7 users, role `<select>` change (`csm`→`manager`) persisted across reload then reverted; self-deactivate on the admin's own row surfaced the backend's exact 409 message ("You cannot deactivate yourself") inline, no crash; manager sees the link + table with plain-text roles, no select/button; csm has no Users nav link and direct-navigating to `/users` shows the 403 envelope message inline ("Role 'csm' may not GET /api/v1/users"), no crash.
 
 ## Phase 11 — Docker
+
 - [x] `backend/Dockerfile` — `python:3.13-slim` (matches `.python-version`), `pip install .` (no build tools needed — `psycopg2-binary` bundles libpq), non-root `appuser`, `entrypoint.sh` (`set -e; alembic upgrade head; exec uvicorn ...`)
 - [x] `frontend/Dockerfile` — multi-stage `deps → builder → runner`; `BUILD_STANDALONE=1` + `ARG BACKEND_URL`/`ENV BACKEND_URL` set in the builder stage before `next build --webpack` (the rewrite destination is frozen into `.next/routes-manifest.json` at build time — a runtime-only env would bake in `undefined/api/v1/...`); runner copies only `.next/standalone` + `.next/static` + `public`, runs as non-root `nextjs`, `node server.js`
 - [x] `.gitattributes` (new) — `*.sh text eol=lf`, so `entrypoint.sh`'s shebang survives a checkout on a machine with `core.autocrlf=true` (this repo's Windows dev box included) without a "bad interpreter" crash inside the Linux container
 - [x] `docker-compose.yml` extended — `backend` (env_file `backend/.env`, `DATABASE_URL`/`REDIS_URL`/`COOKIE_SECURE=false` overridden to in-compose service names, `depends_on: {postgres,redis}: condition: service_healthy`, stdlib-`urllib`-based healthcheck since `python:3.13-slim` has no `curl`) + `frontend` (`build.args.BACKEND_URL=http://backend:8000`, `depends_on: backend: condition: service_healthy`)
 - [x] **Found+fixed during implementation:** `npm ci` failed inside `node:22-alpine` (bundled npm 10.9.8) with a spurious `ajv`/lockfile-mismatch error, even though `npm ci` passes clean on the host (npm 11.6.2, which wrote the lockfile) — an npm-major-version lockfile-strictness difference, not a real drift (`npm install` on either version is a no-op). Fixed by pinning `npm install -g npm@11` before `npm ci` in the deps stage.
-- [x] **Test:** `docker compose build` clean for both images. Full `docker compose down -v` → `up -d` on **completely fresh volumes** → all 4 services `healthy`; backend log shows the real migration run (`Running upgrade  -> 0001, initial`), not just an idempotent no-op against an already-migrated volume. `docker compose exec backend python scripts/seed.py` → real seed output (6 users/15 customers/40 interactions/40 insights) from empty. End-to-end auth + data round-trip verified via curl through the containerized proxy (browser automation was unavailable this session — extension disconnected): `POST localhost:3000/api/v1/auth/login` → 200 + first-party `refresh_token` cookie on the *frontend* host (not the backend's, proving `BACKEND_URL=http://backend:8000` resolved correctly at build time and the rewrite is genuinely server-to-server) → `GET /api/v1/auth/me` with the bearer token → 200 → `POST /api/v1/auth/refresh` off the cookie alone → 200 new token. `GET /api/v1/dashboard/summary` → 200 with real numbers matching the fresh seed. `GET /login` on the standalone Next server → 200, real rendered HTML ("Log in"/"Email"/"Password"). Stack torn down after (`docker compose down`, volumes kept) to free ports 8000/3000 for local dev.
+- [x] **Test:** `docker compose build` clean for both images. Full `docker compose down -v` → `up -d` on **completely fresh volumes** → all 4 services `healthy`; backend log shows the real migration run (`Running upgrade  -> 0001, initial`), not just an idempotent no-op against an already-migrated volume. `docker compose exec backend python scripts/seed.py` → real seed output (6 users/15 customers/40 interactions/40 insights) from empty. End-to-end auth + data round-trip verified via curl through the containerized proxy (browser automation was unavailable this session — extension disconnected): `POST localhost:3000/api/v1/auth/login` → 200 + first-party `refresh_token` cookie on the _frontend_ host (not the backend's, proving `BACKEND_URL=http://backend:8000` resolved correctly at build time and the rewrite is genuinely server-to-server) → `GET /api/v1/auth/me` with the bearer token → 200 → `POST /api/v1/auth/refresh` off the cookie alone → 200 new token. `GET /api/v1/dashboard/summary` → 200 with real numbers matching the fresh seed. `GET /login` on the standalone Next server → 200, real rendered HTML ("Log in"/"Email"/"Password"). Stack torn down after (`docker compose down`, volumes kept) to free ports 8000/3000 for local dev.
 
 ## Phase 12 — Re-deploy + verify
-- [ ] Confirm Neon/Upstash (provisioned in Phase 03); run any new migrations
-- [ ] Redeploy complete backend to Render (`COOKIE_SAMESITE=lax`; CORS minimal, not load-bearing)
-- [ ] Redeploy full frontend to Vercel; `BACKEND_URL` server-side env set
-- [ ] Seed run against prod DB (locally, `DATABASE_URL` → Neon; Render free has no shell)
-- [ ] Cookie confirmed first-party (Vercel origin, SameSite=Lax, no Domain)
-- [ ] Both public URLs load and auth works across roles
+
+- [x] **Found first:** Render/Vercel had already auto-deployed `ca2d7a9` (Phase 09-10) from Phase 03's GitHub integration — confirmed live via `/healthz` (`db:ok, redis:ok`) and the full `/openapi.json` route set before touching anything. This phase was a gap-closing pass, not a first deploy. No new Alembic migrations existed to run (head still `0001`).
+- [x] Pushed the one outstanding local commit (`c5ceebf`, Phase 11 Docker-only — no app code, so this didn't change deployed behavior, just brought repo HEAD in line with what's live) — turned out already on `origin/main` by the time this phase ran.
+- [x] **New this phase:** added `GROQ_API_KEY`/`GROQ_MODEL=openai/gpt-oss-120b`/`CEREBRAS_API_KEY`/`CEREBRAS_MODEL=gpt-oss-120b` to Render — Phase 03's original env list never had them, so AI insight generation was not possible in prod until now.
+- [x] **Rotated `JWT_SECRET`** on Render (user's call — Neon/Upstash rotation deferred, existing values kept working and were left alone). `COOKIE_SECURE=true`/`COOKIE_SAMESITE=lax`/`CORS_ORIGINS` already correct from Phase 03, confirmed unchanged.
+- [x] Prod seed **not re-run** — already seeded (15 customers, matching local dev counts) and the seed is idempotent on `admin@csp.demo` existing; re-running would have been a no-op.
+- [x] Cookie confirmed first-party via curl (`Set-Cookie: refresh_token=…; HttpOnly; Path=/api/v1/auth; SameSite=lax; Secure`, no `Domain`) — curl is the authoritative check here since `HttpOnly` hides the cookie from DevTools/`document.cookie` anyway.
+- [x] **Test:** full live verification, curl + Chrome automation against the real URLs (not local dev). Curl: healthz green with rotated secret; login→cookie→refresh round-trip (200s, new access token each time); all 3 demo role logins succeed (`admin@csp.demo`/`manager1@csp.demo`/`csm1@csp.demo` — no password drift found, despite a mid-project seed-password change (`85800d2`) that could have left prod on the old `Csm123!`); created a real interaction via the API and got back `insight.provider:"groq"`, `model:"openai/gpt-oss-120b"`, `status:"completed"` — the new Render LLM keys work end-to-end in prod (Cerebras key set too but not exercised — Groq didn't fail — so failover itself wasn't demonstrated, only that it's wired). Browser: logged in as admin on the live Vercel URL → full `/dashboard` renders (KPI cards, sentiment strip, gap-filled 30-day trend chart, lowest-health list) with real prod numbers; opened the interaction created via curl and its `InsightPanel` renders correctly (sentiment badge, summary, action items, risks, `groq · openai/gpt-oss-120b · 1428 ms · attempt 1` footer, Retry button); hard-navigation reload kept the session (exactly one `/api/v1/auth/refresh` call, confirmed via network-request inspection) and the KPI `Interactions` count went 11→12 reflecting the interaction created moments earlier via curl (write→cache-invalidation fan-out confirmed live, not just locally); logout → redirect to `/login`; logged in as csm1 → scoped dashboard (5 customers vs admin's 15), no `Users` nav link (RBAC-gated, confirmed live); no request from the browser ever hit `onrender.com` directly (network-request inspection, proxy confirmed genuinely server-to-server in prod). Cache hit/miss is **not observable in Render logs** (`dashboard_service.py` has no hit/miss log lines — a `plans/12-deploy.md` acceptance criterion that doesn't hold as written); verified by response timing + the write-invalidation behavior above instead, consistent with Phase 07's stronger local verification.
 
 ## Phase 13 — README + demo + verification
+
 - [ ] README: **demo credentials at the top** (3 roles) + "registration = empty csm" note
 - [ ] README: setup, architecture, decisions (from master plan), env table (incl BACKEND_URL), run commands
 - [ ] "What I'd build next" (Account Team) + namespace-global cache note + CSRF/role-from-DB/grace-window lines + "works without LLM keys" note
 - [ ] Architecture diagram / description
-- [ ] Demo video script (login per role, profile, customer CRUD, interaction list/filter/detail/edit, AI insight, failover, RBAC via owner reassign, dashboard, cache)
 - [ ] Final pass: every module works on the live URLs
 - [ ] Record + link video
 
 ---
 
 ## Deploy resolved (Phase 03) — notes for Phase 12 re-deploy
+
 - **Live URLs:** backend `https://customer-success-platform-c2u0.onrender.com`, frontend `https://customer-success-platform-murex.vercel.app`.
 - **Vercel + Next 16 gotcha:** Next 16.3.x Turbopack build omits `next-server.js.nft.json` → Vercel `onBuildComplete` ENOENT. Fix: `"build": "next build --webpack"` in `frontend/package.json`. Separately, the first Vercel project got stuck in a broken edge-routing state (build Ready but 404 on every route, even fresh deployments); **deleting and recreating the Vercel project fixed it**. Re-add env vars on any recreate — frontend needs only `BACKEND_URL` (server-side).
 - **Prod seed:** run locally against Neon with the venv python (3.13): `DATABASE_URL=<neon> REDIS_URL=<upstash> JWT_SECRET=<secret> ENV=prod .venv/Scripts/python.exe scripts/seed.py`. Idempotent.
-- **Secrets exposed in chat during setup** — rotate before any real use: Neon password, Upstash token, `JWT_SECRET`.
+- **Secrets rotation (Phase 12):** `JWT_SECRET` rotated on Render. Neon password / Upstash token rotation **deferred, by user's choice** — current values still work fine and were left alone; revisit before Phase 13's demo video if that matters, otherwise not blocking.
 
-## Blocked / notes
-- **Phase 03 deploy (Render + Neon + Upstash + Vercel) is code-complete but not executed.** No `vercel`/`render` CLI here and I can't create third-party accounts. Runbook (drive from your dashboards, paste only the resulting URLs back, never secrets):
-  1. Push `main` to the existing `origin` (github.com/vishal-jadeja/customer-success-platform) — ask before I push.
-  2. **Neon**: new project → copy the **pooled** connection string, append `?sslmode=require`, scheme `postgresql+psycopg2://`.
-  3. **Upstash**: new Redis DB → copy the `rediss://` URL.
-  4. **Render**: new Web Service, native Python, root dir `backend`, build `pip install .`, start `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`, health check `/healthz`. Env: `DATABASE_URL` (Neon), `REDIS_URL` (Upstash), `JWT_SECRET` (`python -c "import secrets;print(secrets.token_urlsafe(48))"`), `COOKIE_SECURE=true`, `COOKIE_SAMESITE=lax`, `CORS_ORIGINS=<vercel-url-once-known>`, `ENV=prod`.
-  5. **Vercel**: import repo, root dir `frontend`, env `BACKEND_URL=<render-url>` (server-side, NOT `NEXT_PUBLIC_`).
-  6. Verify: `curl https://<render>/healthz` → `db/redis: ok`; open the Vercel URL, log in, DevTools confirms the `Set-Cookie` is on the Vercel host with `Secure; SameSite=Lax; Path=/api/v1/auth`, no `Domain`, and no request hits the Render domain.
-  7. Optionally seed prod now: `DATABASE_URL=<neon-url> python scripts/seed.py` (run locally — Render free has no shell).
-  Once URLs exist, tell me and I'll verify the round-trip and tick the three deploy items.
+## Handoff to Phase 13
+
+- README demo credentials: use `admin@csp.demo`/`Admin123!`, `manager1@csp.demo`/`Manager123!`, `csm1@csp.demo`/`Csm12345!` — all three confirmed live in prod during Phase 12, not just assumed from `seed.py`.
+- README should note the Render free-tier cold start (~44s measured this phase) and "warm the URL before recording."
+- README env table: include the LLM vars now live on Render (`GROQ_API_KEY`/`GROQ_MODEL`/`CEREBRAS_API_KEY`/`CEREBRAS_MODEL`) alongside the existing ones; note Cerebras is configured but its account currently returns `402` (billing, not code) — don't claim failover was demonstrated in prod, only that Groq works and the failover path is wired.
+- Neon/Upstash rotation is still open if it matters before recording (see above).
