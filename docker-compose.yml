@@ -1,5 +1,9 @@
-# Infra-only skeleton: Postgres + Redis with healthchecks and persistent volumes.
-# No app service yet — backend/frontend containers arrive in Phase 11.
+# Full stack: Postgres + Redis + backend + frontend, wired by service name.
+# `cp backend/.env.example backend/.env` and `cp frontend/.env.example frontend/.env`
+# first (both git-ignored) — backend's env_file below reads real values (LLM
+# keys, JWT secret) from backend/.env; DATABASE_URL/REDIS_URL/COOKIE_SECURE
+# are overridden below to the in-compose service names regardless of what
+# backend/.env says for local (non-Docker) uvicorn.
 services:
   postgres:
     image: postgres:16
@@ -28,6 +32,50 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override whatever backend/.env has for local (non-Docker) uvicorn —
+      # inside compose, Postgres/Redis are reachable by service name, not
+      # localhost.
+      DATABASE_URL: postgresql+psycopg2://csp:csp@postgres:5432/csp
+      REDIS_URL: redis://redis:6379/0
+      # http://localhost inside compose (no TLS terminator here) — Secure
+      # cookies would never be set. Prod (Render) keeps COOKIE_SECURE=true.
+      COOKIE_SECURE: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # No curl in python:3.13-slim; urllib is stdlib, so this needs no
+      # extra package install.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Internal DNS name, resolved server-to-server by the Next.js
+        # rewrite — the browser never sees or resolves this. Frozen into
+        # the build output, so it must be a build arg (see Dockerfile).
+        BACKEND_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

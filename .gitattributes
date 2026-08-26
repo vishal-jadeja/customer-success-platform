@@ -1,0 +1,4 @@
+# Shell scripts run inside Linux containers (Docker COPY). A CRLF-mangled
+# shebang line breaks with "bad interpreter" — force LF regardless of the
+# checking-out machine's core.autocrlf.
+*.sh text eol=lf
