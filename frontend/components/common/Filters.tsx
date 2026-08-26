@@ -4,7 +4,9 @@
 // than two independently-styled forms.
 export default function Filters({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded border bg-gray-50 p-3">{children}</div>
+    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-hairline bg-panel p-4 backdrop-blur-xl">
+      {children}
+    </div>
   );
 }
 
@@ -16,8 +18,8 @@ export function FilterField({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-gray-600">{label}</span>
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className="text-text-secondary">{label}</span>
       {children}
     </label>
   );

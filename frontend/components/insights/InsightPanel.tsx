@@ -1,8 +1,12 @@
 "use client";
 
+import { ListChecks, Loader2, RotateCw, ShieldAlert, Sparkles, TriangleAlert } from "lucide-react";
+
 import SentimentBadge from "@/components/insights/SentimentBadge";
+import Button from "@/components/ui/Button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { regenerateInsight, type Interaction } from "@/store/slices/interactionsSlice";
+import { cn } from "@/lib/cn";
 
 /**
  * The AI insight state machine: pending/completed/failed/null, the Retry
@@ -37,19 +41,14 @@ export default function InsightPanel({
   }
 
   const retryButton = (
-    <button
-      type="button"
-      onClick={handleRetry}
-      disabled={isRegenerating}
-      aria-busy={isRegenerating}
-      className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50"
-    >
+    <Button variant="secondary" size="sm" onClick={handleRetry} loading={isRegenerating}>
+      {!isRegenerating && <RotateCw className="h-3.5 w-3.5" />}
       {isRegenerating ? "Regenerating…" : "Retry"}
-    </button>
+    </Button>
   );
 
   const transportError = regenerateError && (
-    <p className="mt-2 text-xs text-red-600">
+    <p className="mt-2 text-xs text-bad">
       {regenerateError.message}
       {regenerateError.code === "TIMEOUT" &&
         " Generation may still have finished — reload to check."}
@@ -57,7 +56,10 @@ export default function InsightPanel({
   );
 
   const heading = variant === "full" && (
-    <h2 className="text-sm font-semibold text-gray-600">AI insight</h2>
+    <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-secondary">
+      <Sparkles className="h-3.5 w-3.5 text-accent" />
+      AI insight
+    </h2>
   );
 
   // A row always gets an insight row committed with it (Phase 05/06) — null
@@ -65,10 +67,10 @@ export default function InsightPanel({
   // "no insight" state.
   if (!insight || insight.status === "pending") {
     return (
-      <div className={`rounded border p-4 ${className ?? ""}`}>
+      <div className={cn("rounded-xl border border-accent/20 bg-accent-soft p-4", className)}>
         {heading}
-        <p className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-          <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <p className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
           Generating…
         </p>
       </div>
@@ -77,9 +79,12 @@ export default function InsightPanel({
 
   if (insight.status === "failed") {
     return (
-      <div className={`rounded border border-red-200 bg-red-50 p-4 ${className ?? ""}`}>
+      <div className={cn("rounded-xl border border-warn/25 bg-warn-soft p-4", className)}>
         {heading}
-        <p className="mt-2 text-sm text-red-700">{insight.error_message ?? "Generation failed."}</p>
+        <p className="mt-2 flex items-start gap-2 text-sm text-warn">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {insight.error_message ?? "Generation failed."}
+        </p>
         <div className="mt-3">{retryButton}</div>
         {transportError}
       </div>
@@ -88,43 +93,51 @@ export default function InsightPanel({
 
   // completed
   return (
-    <div className={`rounded border p-4 ${className ?? ""}`}>
+    <div className={cn("rounded-xl border border-hairline bg-panel p-4", className)}>
       <div className="flex items-center justify-between">
         {heading}
         {variant === "full" && retryButton}
       </div>
-      <div className="mt-2 space-y-2 text-sm">
+      <div className="mt-2 space-y-3 text-sm text-text">
         <SentimentBadge sentiment={insight.sentiment} size="md" />
-        <p className={variant === "compact" ? "line-clamp-2" : undefined}>{insight.summary}</p>
+        <p className={cn("text-text-secondary", variant === "compact" && "line-clamp-2")}>
+          {insight.summary}
+        </p>
 
         <div>
-          <p className="font-medium">Action items</p>
+          <p className="flex items-center gap-1.5 font-medium text-text">
+            <ListChecks className="h-3.5 w-3.5 text-text-muted" />
+            Action items
+          </p>
           {insight.action_items.length > 0 ? (
-            <ul className="list-inside list-disc">
+            <ul className="mt-1 list-inside list-disc text-text-secondary marker:text-text-muted">
               {insight.action_items.map((item, i) => (
                 <li key={i}>{item}</li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-400">No action items suggested.</p>
+            <p className="mt-1 text-text-muted">No action items suggested.</p>
           )}
         </div>
 
         <div>
-          <p className="font-medium">Key risks</p>
+          <p className="flex items-center gap-1.5 font-medium text-text">
+            <ShieldAlert className="h-3.5 w-3.5 text-text-muted" />
+            Key risks
+          </p>
           {insight.risks.length > 0 ? (
-            <ul className="list-inside list-disc">
+            <ul className="mt-1 list-inside list-disc text-text-secondary marker:text-text-muted">
               {insight.risks.map((risk, i) => (
                 <li key={i}>{risk}</li>
               ))}
             </ul>
           ) : (
-            <p className="text-gray-400">No risks identified.</p>
+            <p className="mt-1 text-text-muted">No risks identified.</p>
           )}
         </div>
 
         {variant === "full" && (
-          <p className="text-xs text-gray-400">
+          <p className="font-mono text-xs text-text-muted">
             {[
               insight.provider,
               insight.model,

@@ -1,10 +1,6 @@
-import { SENTIMENT_BADGE_CLASS, SENTIMENT_LABEL } from "@/lib/colors";
+import { SENTIMENT_LABEL, SENTIMENT_TONE } from "@/lib/colors";
 import type { SentimentValue } from "@/schemas/interaction";
-
-const SIZE_CLASS: Record<"sm" | "md", string> = {
-  sm: "text-xs px-2 py-0.5",
-  md: "text-sm px-2.5 py-1",
-};
+import Badge from "@/components/ui/Badge";
 
 /**
  * The one place in the app that renders a sentiment chip. Returns null for a
@@ -23,10 +19,8 @@ export default function SentimentBadge({
 }) {
   if (!sentiment) return null;
   return (
-    <span
-      className={`inline-flex items-center rounded font-medium ${SENTIMENT_BADGE_CLASS[sentiment]} ${SIZE_CLASS[size]} ${className ?? ""}`}
-    >
+    <Badge tone={SENTIMENT_TONE[sentiment]} size={size} className={className}>
       {SENTIMENT_LABEL[sentiment]}
-    </span>
+    </Badge>
   );
 }

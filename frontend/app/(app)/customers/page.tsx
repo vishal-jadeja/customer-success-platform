@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 
 import Filters, { FilterField } from "@/components/common/Filters";
 import Pagination from "@/components/common/Pagination";
@@ -12,6 +13,12 @@ import {
   fetchCustomers,
   type CustomerListParams,
 } from "@/store/slices/customersSlice";
+import Button, { buttonClass } from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Select from "@/components/ui/Select";
+import Skeleton from "@/components/ui/Skeleton";
 
 const EMPTY_FILTERS: CustomerListParams = {
   q: "",
@@ -49,27 +56,28 @@ export default function CustomersPage() {
   const customers = ids.map((id) => entities[id]);
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Customers</h1>
-        <Link href="/customers/new" className="rounded bg-black px-3 py-2 text-sm text-white">
-          New customer
-        </Link>
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        title="Customers"
+        action={
+          <Link href="/customers/new" className={buttonClass("primary")}>
+            <Plus className="h-4 w-4" />
+            New customer
+          </Link>
+        }
+      />
 
       <form onSubmit={handleFilterSubmit}>
         <Filters>
           <FilterField label="Search">
-            <input
-              className="rounded border px-2 py-1"
+            <Input
               value={form.q}
               onChange={(e) => setForm({ ...form, q: e.target.value })}
               placeholder="Name, company, email…"
             />
           </FilterField>
           <FilterField label="Status">
-            <select
-              className="rounded border px-2 py-1"
+            <Select
               value={form.status}
               onChange={(e) =>
                 setForm({ ...form, status: e.target.value as CustomerListParams["status"] })
@@ -81,21 +89,20 @@ export default function CustomersPage() {
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
           </FilterField>
           <FilterField label="Industry">
-            <input
-              className="rounded border px-2 py-1"
+            <Input
               value={form.industry}
               onChange={(e) => setForm({ ...form, industry: e.target.value })}
             />
           </FilterField>
           <FilterField label="Min health">
-            <input
+            <Input
               type="number"
               min={0}
               max={100}
-              className="w-20 rounded border px-2 py-1"
+              className="w-20"
               value={form.min_health ?? ""}
               onChange={(e) =>
                 setForm({
@@ -106,11 +113,11 @@ export default function CustomersPage() {
             />
           </FilterField>
           <FilterField label="Max health">
-            <input
+            <Input
               type="number"
               min={0}
               max={100}
-              className="w-20 rounded border px-2 py-1"
+              className="w-20"
               value={form.max_health ?? ""}
               onChange={(e) =>
                 setForm({
@@ -121,8 +128,7 @@ export default function CustomersPage() {
             />
           </FilterField>
           <FilterField label="Sort">
-            <select
-              className="rounded border px-2 py-1"
+            <Select
               value={form.sort}
               onChange={(e) =>
                 setForm({ ...form, sort: e.target.value as CustomerListParams["sort"] })
@@ -133,11 +139,10 @@ export default function CustomersPage() {
                   {s}
                 </option>
               ))}
-            </select>
+            </Select>
           </FilterField>
           <FilterField label="Order">
-            <select
-              className="rounded border px-2 py-1"
+            <Select
               value={form.order}
               onChange={(e) =>
                 setForm({ ...form, order: e.target.value as CustomerListParams["order"] })
@@ -145,20 +150,20 @@ export default function CustomersPage() {
             >
               <option value="desc">Desc</option>
               <option value="asc">Asc</option>
-            </select>
+            </Select>
           </FilterField>
-          <button type="submit" className="rounded bg-black px-3 py-1.5 text-sm text-white">
+          <Button type="submit" size="sm">
             Apply
-          </button>
+          </Button>
         </Filters>
       </form>
 
-      <div className="mt-4 rounded border">
-        {status === "loading" && <p className="p-6 text-center text-sm text-gray-500">Loading…</p>}
+      <div className="mt-4">
+        {status === "loading" && <Skeleton className="h-64 w-full" />}
         {status === "failed" && (
-          <div className="p-6 text-center text-sm text-red-600">
+          <div className="rounded-2xl border border-warn/20 bg-warn-soft p-6 text-center text-sm text-warn">
             {error?.message ?? "Failed to load customers."}{" "}
-            <button className="underline" onClick={() => load(form)} type="button">
+            <button className="hover:underline" onClick={() => load(form)} type="button">
               Retry
             </button>
           </div>
@@ -174,6 +179,6 @@ export default function CustomersPage() {
           onPageChange={(p) => load({ ...form, page: p })}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

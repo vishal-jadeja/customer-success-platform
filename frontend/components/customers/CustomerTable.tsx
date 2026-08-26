@@ -2,52 +2,57 @@
 
 import { useRouter } from "next/navigation";
 
-import { CUSTOMER_STATUS_BADGE_CLASS } from "@/lib/colors";
+import { CUSTOMER_STATUS_LABEL, CUSTOMER_STATUS_TONE } from "@/lib/colors";
+import { formatCurrency } from "@/lib/format";
 import type { Customer } from "@/store/slices/customersSlice";
+import Badge from "@/components/ui/Badge";
+import EmptyState from "@/components/ui/EmptyState";
+import HealthDot from "@/components/ui/HealthDot";
+import { Table, TBody, TCell, TH, THead, TRow } from "@/components/ui/Table";
+import { Users } from "lucide-react";
 
 export default function CustomerTable({ customers }: { customers: Customer[] }) {
   const router = useRouter();
 
   if (customers.length === 0) {
-    return <p className="p-6 text-center text-sm text-gray-500">No customers found.</p>;
+    return (
+      <div className="rounded-2xl border border-hairline bg-panel backdrop-blur-xl">
+        <EmptyState icon={Users} title="No customers found" description="Try adjusting your filters." />
+      </div>
+    );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b text-gray-500">
-            <th className="py-2 pr-4">Name</th>
-            <th className="py-2 pr-4">Company</th>
-            <th className="py-2 pr-4">Status</th>
-            <th className="py-2 pr-4">Health</th>
-            <th className="py-2 pr-4">ARR</th>
-            <th className="py-2 pr-4">Industry</th>
-          </tr>
-        </thead>
-        <tbody>
-          {customers.map((c) => (
-            <tr
-              key={c.id}
-              className="cursor-pointer border-b hover:bg-gray-50"
-              onClick={() => router.push(`/customers/${c.id}`)}
-            >
-              <td className="py-2 pr-4 font-medium">{c.name}</td>
-              <td className="py-2 pr-4">{c.company}</td>
-              <td className="py-2 pr-4">
-                <span
-                  className={`rounded px-2 py-0.5 text-xs ${CUSTOMER_STATUS_BADGE_CLASS[c.status] ?? ""}`}
-                >
-                  {c.status}
-                </span>
-              </td>
-              <td className="py-2 pr-4">{c.health_score}</td>
-              <td className="py-2 pr-4">{c.arr ?? "—"}</td>
-              <td className="py-2 pr-4">{c.industry ?? "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table>
+      <THead>
+        <TH>Name</TH>
+        <TH>Company</TH>
+        <TH>Status</TH>
+        <TH>Health</TH>
+        <TH>ARR</TH>
+        <TH>Industry</TH>
+      </THead>
+      <TBody>
+        {customers.map((c) => (
+          <TRow key={c.id} onClick={() => router.push(`/customers/${c.id}`)}>
+            <TCell className="font-medium">{c.name}</TCell>
+            <TCell className="text-text-secondary">{c.company}</TCell>
+            <TCell>
+              <Badge tone={CUSTOMER_STATUS_TONE[c.status]}>{CUSTOMER_STATUS_LABEL[c.status]}</Badge>
+            </TCell>
+            <TCell>
+              <span className="inline-flex items-center gap-2 font-mono tabular-nums">
+                <HealthDot tone={CUSTOMER_STATUS_TONE[c.status]} />
+                {c.health_score}
+              </span>
+            </TCell>
+            <TCell className="font-mono tabular-nums text-text-secondary">
+              {c.arr != null ? formatCurrency(c.arr) : "—"}
+            </TCell>
+            <TCell className="text-text-secondary">{c.industry ?? "—"}</TCell>
+          </TRow>
+        ))}
+      </TBody>
+    </Table>
   );
 }

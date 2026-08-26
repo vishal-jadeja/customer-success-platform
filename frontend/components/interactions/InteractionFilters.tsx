@@ -4,6 +4,9 @@ import Filters, { FilterField } from "@/components/common/Filters";
 import { useCustomerOptions } from "@/lib/useCustomerOptions";
 import { interactionTypes, sentiments } from "@/schemas/interaction";
 import type { InteractionListParams } from "@/store/slices/interactionsSlice";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 
 /**
  * Mirrors backend filter params exactly: customer_id, type, sentiment,
@@ -31,8 +34,7 @@ export default function InteractionFilters({
     >
       <Filters>
         <FilterField label="Customer">
-          <select
-            className="rounded border px-2 py-1"
+          <Select
             value={value.customer_id ?? ""}
             onChange={(e) => onChange({ ...value, customer_id: e.target.value || undefined })}
           >
@@ -42,11 +44,10 @@ export default function InteractionFilters({
                 {c.name} ({c.company})
               </option>
             ))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Type">
-          <select
-            className="rounded border px-2 py-1"
+          <Select
             value={value.type ?? ""}
             onChange={(e) =>
               onChange({ ...value, type: e.target.value as InteractionListParams["type"] })
@@ -58,11 +59,10 @@ export default function InteractionFilters({
                 {t.replace("_", " ")}
               </option>
             ))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="Sentiment">
-          <select
-            className="rounded border px-2 py-1"
+          <Select
             value={value.sentiment ?? ""}
             onChange={(e) =>
               onChange({ ...value, sentiment: e.target.value as InteractionListParams["sentiment"] })
@@ -74,27 +74,25 @@ export default function InteractionFilters({
                 {s}
               </option>
             ))}
-          </select>
+          </Select>
         </FilterField>
         <FilterField label="From">
-          <input
+          <Input
             type="date"
-            className="rounded border px-2 py-1"
             value={value.date_from ?? ""}
             onChange={(e) => onChange({ ...value, date_from: e.target.value || undefined })}
           />
         </FilterField>
         <FilterField label="To">
-          <input
+          <Input
             type="date"
-            className="rounded border px-2 py-1"
             value={value.date_to ?? ""}
             onChange={(e) => onChange({ ...value, date_to: e.target.value || undefined })}
           />
         </FilterField>
-        <button type="submit" className="rounded bg-black px-3 py-1.5 text-sm text-white">
+        <Button type="submit" size="sm">
           Apply
-        </button>
+        </Button>
       </Filters>
     </form>
   );

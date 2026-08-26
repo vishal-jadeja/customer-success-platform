@@ -12,6 +12,11 @@ import {
   type InteractionFormRawInput,
 } from "@/schemas/interaction";
 import type { InteractionFormPayload } from "@/store/slices/interactionsSlice";
+import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Textarea from "@/components/ui/Textarea";
 
 // <input type="datetime-local"> <-> ISO instant. datetime-local has no
 // timezone, so this reads/writes it in the browser's local time — good
@@ -92,110 +97,65 @@ export default function InteractionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-3">
-      <div>
-        <label className="text-sm text-gray-600">Customer</label>
+    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
+      <Field label="Customer" error={fixedCustomerId ? undefined : errors.customer_id?.message}>
         {fixedCustomerId ? (
-          <p className="mt-1 rounded border bg-gray-50 px-3 py-2 text-sm">
+          <p className="rounded-lg border border-hairline-strong bg-panel-strong px-3 py-2 text-sm text-text-secondary">
             {fixedCustomer ? `${fixedCustomer.name} (${fixedCustomer.company})` : fixedCustomerId}
           </p>
         ) : (
-          <>
-            <select
-              className="mt-1 w-full rounded border px-3 py-2"
-              {...register("customer_id")}
-            >
-              <option value="">Select a customer…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.company})
-                </option>
-              ))}
-            </select>
-            {errors.customer_id && (
-              <p className="mt-1 text-sm text-red-600">{errors.customer_id.message}</p>
-            )}
-          </>
+          <Select {...register("customer_id")}>
+            <option value="">Select a customer…</option>
+            {customers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.company})
+              </option>
+            ))}
+          </Select>
         )}
-      </div>
+      </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm text-gray-600" htmlFor="type">
-            Type
-          </label>
-          <select id="type" className="mt-1 w-full rounded border px-3 py-2" {...register("type")}>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Type" htmlFor="type">
+          <Select id="type" {...register("type")}>
             {interactionTypes.map((t) => (
               <option key={t} value={t}>
                 {t.replace("_", " ")}
               </option>
             ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm text-gray-600" htmlFor="occurred_at">
-            Occurred at
-          </label>
-          <input
-            id="occurred_at"
-            type="datetime-local"
-            className="mt-1 w-full rounded border px-3 py-2"
-            {...register("occurred_at")}
-          />
-          {errors.occurred_at && (
-            <p className="mt-1 text-sm text-red-600">{errors.occurred_at.message}</p>
-          )}
-        </div>
+          </Select>
+        </Field>
+        <Field label="Occurred at" htmlFor="occurred_at" error={errors.occurred_at?.message}>
+          <Input id="occurred_at" type="datetime-local" {...register("occurred_at")} />
+        </Field>
       </div>
 
-      <div>
-        <label className="text-sm text-gray-600" htmlFor="title">
-          Title
-        </label>
-        <input id="title" className="mt-1 w-full rounded border px-3 py-2" {...register("title")} />
-        {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
-      </div>
+      <Field label="Title" htmlFor="title" error={errors.title?.message}>
+        <Input id="title" {...register("title")} />
+      </Field>
 
-      <div>
-        <label className="text-sm text-gray-600" htmlFor="duration_minutes">
-          Duration (minutes, optional)
-        </label>
-        <input
-          id="duration_minutes"
-          type="number"
-          min={0}
-          max={1440}
-          className="mt-1 w-full rounded border px-3 py-2"
-          {...register("duration_minutes")}
-        />
-        {errors.duration_minutes && (
-          <p className="mt-1 text-sm text-red-600">{errors.duration_minutes.message}</p>
-        )}
-      </div>
+      <Field
+        label="Duration (minutes, optional)"
+        htmlFor="duration_minutes"
+        error={errors.duration_minutes?.message}
+      >
+        <Input id="duration_minutes" type="number" min={0} max={1440} {...register("duration_minutes")} />
+      </Field>
 
-      <div>
-        <label className="text-sm text-gray-600" htmlFor="notes">
-          Notes
-        </label>
-        <textarea
+      <Field label="Notes" htmlFor="notes" error={errors.notes?.message}>
+        <Textarea
           id="notes"
           rows={6}
-          className="mt-1 w-full rounded border px-3 py-2"
           placeholder="Meeting notes — at least 20 characters, used as the AI insight input."
           {...register("notes")}
         />
-        {errors.notes && <p className="mt-1 text-sm text-red-600">{errors.notes.message}</p>}
-      </div>
+      </Field>
 
-      {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
+      {errors.root && <p className="text-sm text-bad">{errors.root.message}</p>}
 
-      <button
-        type="submit"
-        className="mt-2 rounded bg-black px-3 py-2 text-white disabled:opacity-50"
-        disabled={isSubmitting}
-      >
+      <Button type="submit" loading={isSubmitting} className="mt-1 self-start">
         {isSubmitting ? "Saving…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

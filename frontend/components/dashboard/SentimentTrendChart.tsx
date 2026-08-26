@@ -37,16 +37,34 @@ export default function SentimentTrendChart({
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.14)" />
           <XAxis
             dataKey="date"
             tickFormatter={(d: string) => d.slice(5)}
             minTickGap={24}
-            tick={{ fontSize: 12 }}
+            tick={{ fontSize: 12, fill: "#8b96ac" }}
+            axisLine={{ stroke: "rgba(148,163,184,0.14)" }}
+            tickLine={false}
           />
-          <YAxis allowDecimals={false} width={32} tick={{ fontSize: 12 }} />
-          <Tooltip />
-          <Legend />
+          <YAxis
+            allowDecimals={false}
+            width={32}
+            tick={{ fontSize: 12, fill: "#8b96ac" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "#10162a",
+              border: "1px solid rgba(148,163,184,0.2)",
+              borderRadius: 10,
+              fontSize: 12,
+              color: "#e8edf5",
+            }}
+            labelStyle={{ color: "#9aa6bc" }}
+            cursor={{ stroke: "rgba(148,163,184,0.2)" }}
+          />
+          <Legend wrapperStyle={{ fontSize: 12, color: "#9aa6bc" }} />
           {sentiments.map((s) => (
             <Line
               key={s}

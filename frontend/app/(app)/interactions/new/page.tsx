@@ -7,6 +7,10 @@ import InteractionForm from "@/components/interactions/InteractionForm";
 import type { ApiError } from "@/lib/errors";
 import { useAppDispatch } from "@/store/hooks";
 import { createInteraction, type InteractionFormPayload } from "@/store/slices/interactionsSlice";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 function NewInteractionForm() {
   const dispatch = useAppDispatch();
@@ -34,12 +38,14 @@ function NewInteractionForm() {
 
 export default function NewInteractionPage() {
   return (
-    <div className="mx-auto max-w-2xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">New interaction</h1>
-      {/* useSearchParams requires a Suspense boundary under the App Router */}
-      <Suspense fallback={<p className="text-sm text-gray-500">Loading…</p>}>
-        <NewInteractionForm />
-      </Suspense>
-    </div>
+    <PageContainer>
+      <PageHeader title="New interaction" />
+      <Card>
+        {/* useSearchParams requires a Suspense boundary under the App Router */}
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <NewInteractionForm />
+        </Suspense>
+      </Card>
+    </PageContainer>
   );
 }

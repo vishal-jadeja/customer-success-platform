@@ -11,6 +11,10 @@ import {
   updateInteraction,
   type InteractionFormPayload,
 } from "@/store/slices/interactionsSlice";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function EditInteractionPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,30 +42,39 @@ export default function EditInteractionPage() {
   }
 
   if (detailStatus === "loading" && !interaction) {
-    return <p className="p-8 text-sm text-gray-500">Loading…</p>;
+    return (
+      <PageContainer>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="mt-6 h-96 w-full" />
+      </PageContainer>
+    );
   }
   if (detailStatus === "failed" && detailError?.code === "PERMISSION_DENIED") {
     return (
-      <p className="p-8 text-sm text-red-600">You don&apos;t have access to this interaction.</p>
+      <PageContainer>
+        <p className="text-sm text-bad">You don&apos;t have access to this interaction.</p>
+      </PageContainer>
     );
   }
   if (!interaction) return null;
 
   return (
-    <div className="mx-auto max-w-2xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">Edit interaction</h1>
-      <InteractionForm
-        fixedCustomerId={interaction.customer_id}
-        initial={{
-          type: interaction.type,
-          title: interaction.title,
-          notes: interaction.notes,
-          occurredAtIso: interaction.occurred_at,
-          duration_minutes: interaction.duration_minutes,
-        }}
-        onSubmit={handleSubmit}
-        submitLabel="Save changes"
-      />
-    </div>
+    <PageContainer>
+      <PageHeader title="Edit interaction" />
+      <Card>
+        <InteractionForm
+          fixedCustomerId={interaction.customer_id}
+          initial={{
+            type: interaction.type,
+            title: interaction.title,
+            notes: interaction.notes,
+            occurredAtIso: interaction.occurred_at,
+            duration_minutes: interaction.duration_minutes,
+          }}
+          onSubmit={handleSubmit}
+          submitLabel="Save changes"
+        />
+      </Card>
+    </PageContainer>
   );
 }

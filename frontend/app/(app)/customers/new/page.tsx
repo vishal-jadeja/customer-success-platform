@@ -6,6 +6,9 @@ import CustomerForm from "@/components/customers/CustomerForm";
 import type { ApiError } from "@/lib/errors";
 import { useAppDispatch } from "@/store/hooks";
 import { createCustomer, type CustomerFormPayload } from "@/store/slices/customersSlice";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function NewCustomerPage() {
   const dispatch = useAppDispatch();
@@ -21,9 +24,11 @@ export default function NewCustomerPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">New customer</h1>
-      <CustomerForm onSubmit={handleSubmit} submitLabel="Create customer" />
-    </div>
+    <PageContainer>
+      <PageHeader title="New customer" />
+      <Card>
+        <CustomerForm onSubmit={handleSubmit} submitLabel="Create customer" />
+      </Card>
+    </PageContainer>
   );
 }

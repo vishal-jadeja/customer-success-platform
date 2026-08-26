@@ -9,6 +9,10 @@ import { extractApiError } from "@/lib/errors";
 import { registerSchema, type RegisterInput } from "@/schemas/auth";
 import { useAppDispatch } from "@/store/hooks";
 import { register as registerThunk } from "@/store/slices/authSlice";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
 
 export default function RegisterPage() {
   const dispatch = useAppDispatch();
@@ -31,54 +35,42 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-8">
-      <h1 className="text-xl font-semibold">Create account</h1>
-      <p className="text-sm text-gray-600">
-        New accounts are created as CSM &mdash; ask an admin to change your role later.
-      </p>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            placeholder="Full name"
-            {...register("full_name")}
-          />
-          {errors.full_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
-          )}
-        </div>
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="email"
-            placeholder="Email"
-            {...register("email")}
-          />
-          {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-        </div>
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="password"
-            placeholder="Password (min 8 characters)"
-            {...register("password")}
-          />
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-          )}
-        </div>
-        {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        <button
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Creating account…" : "Create account"}
-        </button>
-      </form>
-      <p className="text-sm text-gray-600">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="mb-6 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-sm font-bold text-white">
+          C
+        </span>
+        <span className="text-sm font-semibold tracking-tight text-text">
+          Customer Success Platform
+        </span>
+      </div>
+
+      <Card className="w-full max-w-sm">
+        <h1 className="text-lg font-semibold text-text">Create account</h1>
+        <p className="mt-1 text-sm text-text-muted">
+          New accounts are created as CSM — ask an admin to change your role later.
+        </p>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-5 flex flex-col gap-4">
+          <Field label="Full name" error={errors.full_name?.message}>
+            <Input placeholder="Jane Doe" {...register("full_name")} />
+          </Field>
+          <Field label="Email" error={errors.email?.message}>
+            <Input type="email" placeholder="you@company.com" {...register("email")} />
+          </Field>
+          <Field label="Password" hint="Minimum 8 characters" error={errors.password?.message}>
+            <Input type="password" placeholder="••••••••" {...register("password")} />
+          </Field>
+          {errors.root && <p className="text-sm text-bad">{errors.root.message}</p>}
+          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+            {isSubmitting ? "Creating account…" : "Create account"}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="mt-5 text-sm text-text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="underline">
+        <Link href="/login" className="text-accent hover:underline">
           Log in
         </Link>
       </p>

@@ -8,6 +8,9 @@ import KpiCards from "@/components/dashboard/KpiCards";
 import SentimentTrendChart from "@/components/dashboard/SentimentTrendChart";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchAtRisk, fetchSentimentTrend, fetchSummary } from "@/store/slices/dashboardSlice";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -33,8 +36,8 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">Dashboard</h1>
+    <PageContainer width="wide">
+      <PageHeader title="Dashboard" subtitle="Your book of business at a glance" />
 
       <DashboardSection
         title="Overview"
@@ -42,9 +45,9 @@ export default function DashboardPage() {
         error={summaryError}
         onRetry={() => dispatch(fetchSummary())}
         skeleton={
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-24 animate-pulse rounded border bg-gray-50" />
+              <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
         }
@@ -52,7 +55,7 @@ export default function DashboardPage() {
         {summary && <KpiCards summary={summary} />}
       </DashboardSection>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <DashboardSection
           title="Sentiment trend"
           subtitle="Last 30 days"
@@ -61,7 +64,7 @@ export default function DashboardPage() {
           onRetry={() => dispatch(fetchSentimentTrend({ days: 30 }))}
           isEmpty={trendStatus === "succeeded" && trend.length === 0}
           emptyMessage="No sentiment data in the last 30 days. Insights appear here once interactions are logged."
-          skeleton={<div className="h-72 animate-pulse rounded bg-gray-50" />}
+          skeleton={<Skeleton className="h-72 w-full" />}
           className="lg:col-span-2"
         >
           <SentimentTrendChart points={trend} days={trendDays} />
@@ -78,7 +81,7 @@ export default function DashboardPage() {
           skeleton={
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-10 animate-pulse rounded bg-gray-50" />
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
             </div>
           }
@@ -86,6 +89,6 @@ export default function DashboardPage() {
           <AtRiskList customers={atRisk} />
         </DashboardSection>
       </div>
-    </div>
+    </PageContainer>
   );
 }

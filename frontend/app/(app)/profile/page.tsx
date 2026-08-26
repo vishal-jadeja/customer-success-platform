@@ -3,11 +3,18 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { CheckCircle2 } from "lucide-react";
 
 import { extractApiError } from "@/lib/errors";
 import { profileUpdateSchema, type ProfileUpdateInput } from "@/schemas/auth";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { updateMe, type ProfileUpdate } from "@/store/slices/authSlice";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
 
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
@@ -56,67 +63,53 @@ export default function ProfilePage() {
   if (!user) return null;
 
   return (
-    <div className="mx-auto max-w-md p-8">
-      <h1 className="text-xl font-semibold">Profile</h1>
-      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt className="text-gray-500">Email</dt>
-        <dd>{user.email}</dd>
-        <dt className="text-gray-500">Role</dt>
-        <dd className="capitalize">{user.role}</dd>
-      </dl>
+    <PageContainer width="narrow">
+      <PageHeader title="Profile" />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-3">
-        <div>
-          <label className="text-sm text-gray-600" htmlFor="full_name">
-            Full name
-          </label>
-          <input
-            id="full_name"
-            className="mt-1 w-full rounded border px-3 py-2"
-            {...register("full_name")}
-          />
-          {errors.full_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
+      <Card>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt className="text-text-muted">Email</dt>
+          <dd className="text-text">{user.email}</dd>
+          <dt className="text-text-muted">Role</dt>
+          <dd className="text-text capitalize">{user.role}</dd>
+        </dl>
+      </Card>
+
+      <Card title="Change details" className="mt-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+          <Field label="Full name" htmlFor="full_name" error={errors.full_name?.message}>
+            <Input id="full_name" {...register("full_name")} />
+          </Field>
+
+          <div className="border-t border-hairline pt-4">
+            <p className="mb-3 text-sm text-text-secondary">Change password (optional)</p>
+            <div className="flex flex-col gap-4">
+              <Field label="Current password" error={errors.current_password?.message}>
+                <Input type="password" placeholder="••••••••" {...register("current_password")} />
+              </Field>
+              <Field
+                label="New password"
+                hint="Minimum 8 characters"
+                error={errors.new_password?.message}
+              >
+                <Input type="password" placeholder="••••••••" {...register("new_password")} />
+              </Field>
+            </div>
+          </div>
+
+          {errors.root && <p className="text-sm text-bad">{errors.root.message}</p>}
+          {saved && (
+            <p className="flex items-center gap-1.5 text-sm text-good">
+              <CheckCircle2 className="h-4 w-4" />
+              Saved.
+            </p>
           )}
-        </div>
 
-        <hr className="my-2" />
-        <p className="text-sm text-gray-600">Change password (optional)</p>
-
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="password"
-            placeholder="Current password"
-            {...register("current_password")}
-          />
-          {errors.current_password && (
-            <p className="mt-1 text-sm text-red-600">{errors.current_password.message}</p>
-          )}
-        </div>
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="password"
-            placeholder="New password (min 8 characters)"
-            {...register("new_password")}
-          />
-          {errors.new_password && (
-            <p className="mt-1 text-sm text-red-600">{errors.new_password.message}</p>
-          )}
-        </div>
-
-        {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        {saved && <p className="text-sm text-green-600">Saved.</p>}
-
-        <button
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Saving…" : "Save changes"}
-        </button>
-      </form>
-    </div>
+          <Button type="submit" loading={isSubmitting} className="self-start">
+            {isSubmitting ? "Saving…" : "Save changes"}
+          </Button>
+        </form>
+      </Card>
+    </PageContainer>
   );
 }

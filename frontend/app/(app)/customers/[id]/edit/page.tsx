@@ -7,6 +7,10 @@ import CustomerForm from "@/components/customers/CustomerForm";
 import type { ApiError } from "@/lib/errors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCustomer, updateCustomer, type CustomerFormPayload } from "@/store/slices/customersSlice";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function EditCustomerPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,30 +34,41 @@ export default function EditCustomerPage() {
   }
 
   if (detailStatus === "loading" && !customer) {
-    return <p className="p-8 text-sm text-gray-500">Loading…</p>;
+    return (
+      <PageContainer>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="mt-6 h-96 w-full" />
+      </PageContainer>
+    );
   }
   if (detailStatus === "failed" && detailError?.code === "PERMISSION_DENIED") {
-    return <p className="p-8 text-sm text-red-600">You don&apos;t have access to this customer.</p>;
+    return (
+      <PageContainer>
+        <p className="text-sm text-bad">You don&apos;t have access to this customer.</p>
+      </PageContainer>
+    );
   }
   if (!customer) return null;
 
   return (
-    <div className="mx-auto max-w-2xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">Edit customer</h1>
-      <CustomerForm
-        defaultValues={{
-          name: customer.name,
-          company: customer.company,
-          email: customer.email,
-          phone: customer.phone ?? "",
-          industry: customer.industry ?? "",
-          status: customer.status,
-          health_score: customer.health_score,
-          arr: customer.arr ?? "",
-        }}
-        onSubmit={handleSubmit}
-        submitLabel="Save changes"
-      />
-    </div>
+    <PageContainer>
+      <PageHeader title="Edit customer" />
+      <Card>
+        <CustomerForm
+          defaultValues={{
+            name: customer.name,
+            company: customer.company,
+            email: customer.email,
+            phone: customer.phone ?? "",
+            industry: customer.industry ?? "",
+            status: customer.status,
+            health_score: customer.health_score,
+            arr: customer.arr ?? "",
+          }}
+          onSubmit={handleSubmit}
+          submitLabel="Save changes"
+        />
+      </Card>
+    </PageContainer>
   );
 }

@@ -7,6 +7,9 @@ import InteractionFilters from "@/components/interactions/InteractionFilters";
 import InteractionList from "@/components/interactions/InteractionList";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchInteractions, type InteractionListParams } from "@/store/slices/interactionsSlice";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 const EMPTY_FILTERS: InteractionListParams = {};
 
@@ -29,8 +32,8 @@ export default function InteractionsPage() {
   const interactions = ids.map((id) => entities[id]);
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
-      <h1 className="mb-4 text-xl font-semibold">Interactions</h1>
+    <PageContainer width="wide">
+      <PageHeader title="Interactions" />
 
       <InteractionFilters
         value={filters}
@@ -38,12 +41,12 @@ export default function InteractionsPage() {
         onApply={() => load({ ...filters, page: 1 })}
       />
 
-      <div className="mt-4 rounded border">
-        {status === "loading" && <p className="p-6 text-center text-sm text-gray-500">Loading…</p>}
+      <div className="mt-4">
+        {status === "loading" && <Skeleton className="h-64 w-full" />}
         {status === "failed" && (
-          <div className="p-6 text-center text-sm text-red-600">
+          <div className="rounded-2xl border border-warn/20 bg-warn-soft p-6 text-center text-sm text-warn">
             {error?.message ?? "Failed to load interactions."}{" "}
-            <button className="underline" onClick={() => load(filters)} type="button">
+            <button className="hover:underline" onClick={() => load(filters)} type="button">
               Retry
             </button>
           </div>
@@ -59,6 +62,6 @@ export default function InteractionsPage() {
           onPageChange={(p) => load({ ...filters, page: p })}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

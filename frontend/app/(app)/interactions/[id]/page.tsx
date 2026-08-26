@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
+import { ArrowRight } from "lucide-react";
 
 import InsightPanel from "@/components/insights/InsightPanel";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchInteraction } from "@/store/slices/interactionsSlice";
+import Card from "@/components/ui/Card";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
+import { buttonClass } from "@/components/ui/Button";
 
 export default function InteractionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,15 +27,26 @@ export default function InteractionDetailPage() {
   }, [dispatch, id]);
 
   if (detailStatus === "loading" && !interaction) {
-    return <p className="p-8 text-sm text-gray-500">Loading…</p>;
+    return (
+      <PageContainer>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="mt-6 h-32 w-full" />
+      </PageContainer>
+    );
   }
   if (detailStatus === "failed" && detailError?.code === "PERMISSION_DENIED") {
     return (
-      <p className="p-8 text-sm text-red-600">You don&apos;t have access to this interaction.</p>
+      <PageContainer>
+        <p className="text-sm text-bad">You don&apos;t have access to this interaction.</p>
+      </PageContainer>
     );
   }
   if (detailStatus === "failed") {
-    return <p className="p-8 text-sm text-red-600">{detailError?.message ?? "Failed to load."}</p>;
+    return (
+      <PageContainer>
+        <p className="text-sm text-bad">{detailError?.message ?? "Failed to load."}</p>
+      </PageContainer>
+    );
   }
   if (!interaction) return null;
 
@@ -39,49 +56,51 @@ export default function InteractionDetailPage() {
     interaction.user_id === currentUser?.id;
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
-      <div className="mb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{interaction.title}</h1>
-          <p className="text-sm text-gray-500">
-            <Link href={`/customers/${interaction.customer_id}`} className="underline">
-              View customer
-            </Link>
-          </p>
-        </div>
-        {canEdit && (
+    <PageContainer>
+      <PageHeader
+        title={interaction.title}
+        subtitle={
           <Link
-            href={`/interactions/${id}/edit`}
-            className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+            href={`/customers/${interaction.customer_id}`}
+            className="inline-flex items-center gap-1 text-accent hover:underline"
           >
-            Edit
+            View customer
+            <ArrowRight className="h-3 w-3" />
           </Link>
-        )}
-      </div>
+        }
+        action={
+          canEdit && (
+            <Link href={`/interactions/${id}/edit`} className={buttonClass("secondary")}>
+              Edit
+            </Link>
+          )
+        }
+      />
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded border p-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-gray-500">Type</dt>
-          <dd className="capitalize">{interaction.type.replace("_", " ")}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Occurred at</dt>
-          <dd>{new Date(interaction.occurred_at).toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Duration</dt>
-          <dd>
-            {interaction.duration_minutes != null ? `${interaction.duration_minutes} min` : "—"}
-          </dd>
-        </div>
-      </dl>
+      <Card>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-xs text-text-muted">Type</dt>
+            <dd className="mt-0.5 text-text capitalize">{interaction.type.replace("_", " ")}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-text-muted">Occurred at</dt>
+            <dd className="mt-0.5 text-text">{new Date(interaction.occurred_at).toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-text-muted">Duration</dt>
+            <dd className="mt-0.5 font-mono text-text tabular-nums">
+              {interaction.duration_minutes != null ? `${interaction.duration_minutes} min` : "—"}
+            </dd>
+          </div>
+        </dl>
+      </Card>
 
-      <div className="mt-4 rounded border p-4">
-        <h2 className="text-sm font-semibold text-gray-600">Notes</h2>
-        <p className="mt-2 whitespace-pre-wrap text-sm">{interaction.notes}</p>
-      </div>
+      <Card title="Notes" className="mt-4">
+        <p className="text-sm whitespace-pre-wrap text-text-secondary">{interaction.notes}</p>
+      </Card>
 
       <InsightPanel interaction={interaction} variant="full" className="mt-4" />
-    </div>
+    </PageContainer>
   );
 }

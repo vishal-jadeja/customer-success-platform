@@ -9,6 +9,10 @@ import { extractApiError } from "@/lib/errors";
 import { loginSchema, type LoginInput } from "@/schemas/auth";
 import { useAppDispatch } from "@/store/hooks";
 import { login } from "@/store/slices/authSlice";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Field from "@/components/ui/Field";
+import Input from "@/components/ui/Input";
 
 export default function LoginPage() {
   const dispatch = useAppDispatch();
@@ -31,41 +35,37 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 p-8">
-      <h1 className="text-xl font-semibold">Log in</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="email"
-            placeholder="Email"
-            {...register("email")}
-          />
-          {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
-        </div>
-        <div>
-          <input
-            className="w-full rounded border px-3 py-2"
-            type="password"
-            placeholder="Password"
-            {...register("password")}
-          />
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-          )}
-        </div>
-        {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        <button
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Logging in…" : "Log in"}
-        </button>
-      </form>
-      <p className="text-sm text-gray-600">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="mb-6 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-sm font-bold text-white">
+          C
+        </span>
+        <span className="text-sm font-semibold tracking-tight text-text">
+          Customer Success Platform
+        </span>
+      </div>
+
+      <Card className="w-full max-w-sm">
+        <h1 className="text-lg font-semibold text-text">Welcome back</h1>
+        <p className="mt-1 text-sm text-text-muted">Log in to your account</p>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-5 flex flex-col gap-4">
+          <Field label="Email" error={errors.email?.message}>
+            <Input type="email" placeholder="you@company.com" {...register("email")} />
+          </Field>
+          <Field label="Password" error={errors.password?.message}>
+            <Input type="password" placeholder="••••••••" {...register("password")} />
+          </Field>
+          {errors.root && <p className="text-sm text-bad">{errors.root.message}</p>}
+          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+            {isSubmitting ? "Logging in…" : "Log in"}
+          </Button>
+        </form>
+      </Card>
+
+      <p className="mt-5 text-sm text-text-muted">
         No account?{" "}
-        <Link href="/register" className="underline">
+        <Link href="/register" className="text-accent hover:underline">
           Register
         </Link>
       </p>

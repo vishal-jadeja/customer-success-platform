@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { Plus } from "lucide-react";
 
 import InteractionList from "@/components/interactions/InteractionList";
-import { CUSTOMER_STATUS_BADGE_CLASS } from "@/lib/colors";
+import { CUSTOMER_STATUS_LABEL, CUSTOMER_STATUS_TONE } from "@/lib/colors";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { deleteCustomer, fetchCustomer } from "@/store/slices/customersSlice";
 import { fetchForCustomer } from "@/store/slices/interactionsSlice";
+import Badge from "@/components/ui/Badge";
+import Button, { buttonClass } from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import HealthDot from "@/components/ui/HealthDot";
+import PageContainer from "@/components/ui/PageContainer";
+import PageHeader from "@/components/ui/PageHeader";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,13 +36,26 @@ export default function CustomerDetailPage() {
   }, [dispatch, id]);
 
   if (detailStatus === "loading" && !customer) {
-    return <p className="p-8 text-sm text-gray-500">Loading…</p>;
+    return (
+      <PageContainer>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="mt-6 h-40 w-full" />
+      </PageContainer>
+    );
   }
   if (detailStatus === "failed" && detailError?.code === "PERMISSION_DENIED") {
-    return <p className="p-8 text-sm text-red-600">You don&apos;t have access to this customer.</p>;
+    return (
+      <PageContainer>
+        <p className="text-sm text-bad">You don&apos;t have access to this customer.</p>
+      </PageContainer>
+    );
   }
   if (detailStatus === "failed") {
-    return <p className="p-8 text-sm text-red-600">{detailError?.message ?? "Failed to load."}</p>;
+    return (
+      <PageContainer>
+        <p className="text-sm text-bad">{detailError?.message ?? "Failed to load."}</p>
+      </PageContainer>
+    );
   }
   if (!customer) return null;
 
@@ -54,89 +75,77 @@ export default function CustomerDetailPage() {
   const interactions = interactionIds.map((iid) => interactionEntities[iid]);
 
   return (
-    <div className="mx-auto max-w-4xl p-8">
-      <div className="mb-4 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">{customer.name}</h1>
-          <p className="text-sm text-gray-500">{customer.company}</p>
-        </div>
-        <div className="flex gap-2">
-          {canEdit && (
-            <Link
-              href={`/customers/${id}/edit`}
-              className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              Edit
-            </Link>
-          )}
-          {canDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={
+          <span className="inline-flex items-center gap-2.5">
+            <HealthDot tone={CUSTOMER_STATUS_TONE[customer.status]} size="lg" />
+            {customer.name}
+          </span>
+        }
+        subtitle={customer.company}
+        action={
+          <div className="flex gap-2">
+            {canEdit && (
+              <Link href={`/customers/${id}/edit`} className={buttonClass("secondary")}>
+                Edit
+              </Link>
+            )}
+            {canDelete && (
+              <Button variant="danger" onClick={handleDelete}>
+                Delete
+              </Button>
+            )}
+          </div>
+        }
+      />
 
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded border p-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-gray-500">Status</dt>
-          <dd>
-            <span className={`rounded px-2 py-0.5 text-xs ${CUSTOMER_STATUS_BADGE_CLASS[customer.status]}`}>
-              {customer.status}
+      <Card>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+          <Stat label="Status">
+            <Badge tone={CUSTOMER_STATUS_TONE[customer.status]}>
+              {CUSTOMER_STATUS_LABEL[customer.status]}
+            </Badge>
+          </Stat>
+          <Stat label="Health score">
+            <span className="font-mono tabular-nums">{customer.health_score}</span>
+          </Stat>
+          <Stat label="ARR">
+            <span className="font-mono tabular-nums">{customer.arr ?? "—"}</span>
+          </Stat>
+          <Stat label="Email">{customer.email}</Stat>
+          <Stat label="Phone">{customer.phone ?? "—"}</Stat>
+          <Stat label="Industry">{customer.industry ?? "—"}</Stat>
+          <Stat label="Owner">{customer.owner?.full_name ?? "—"}</Stat>
+          <Stat label="Interactions">
+            <span className="font-mono tabular-nums">
+              {customer.interaction_count ?? interactions.length}
             </span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Health score</dt>
-          <dd>{customer.health_score}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">ARR</dt>
-          <dd>{customer.arr ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Email</dt>
-          <dd>{customer.email}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Phone</dt>
-          <dd>{customer.phone ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Industry</dt>
-          <dd>{customer.industry ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Owner</dt>
-          <dd>{customer.owner?.full_name ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Interactions</dt>
-          <dd>{customer.interaction_count ?? interactions.length}</dd>
-        </div>
-      </dl>
+          </Stat>
+        </dl>
+      </Card>
 
-      <div className="mt-6 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Interactions</h2>
-        <Link
-          href={`/interactions/new?customer_id=${id}`}
-          className="rounded bg-black px-3 py-1.5 text-sm text-white"
-        >
+      <div className="mt-8 mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-text">Interactions</h2>
+        <Link href={`/interactions/new?customer_id=${id}`} className={buttonClass("primary", "sm")}>
+          <Plus className="h-3.5 w-3.5" />
           New interaction
         </Link>
       </div>
-      <div className="mt-2 rounded border">
-        {interactionsStatus === "loading" && (
-          <p className="p-6 text-center text-sm text-gray-500">Loading…</p>
-        )}
-        {interactionsStatus === "succeeded" && (
-          <InteractionList interactions={interactions} expandableInsights />
-        )}
-      </div>
+      {interactionsStatus === "loading" ? (
+        <Skeleton className="h-32 w-full" />
+      ) : (
+        <InteractionList interactions={interactions} expandableInsights />
+      )}
+    </PageContainer>
+  );
+}
+
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs text-text-muted">{label}</dt>
+      <dd className="mt-0.5 text-text">{children}</dd>
     </div>
   );
 }
