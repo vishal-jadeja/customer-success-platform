@@ -7,7 +7,6 @@ mapping) lives here once.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Protocol
 
 import httpx
@@ -31,14 +30,6 @@ class LLMHTTPError(LLMError):
 
 class LLMAuthError(LLMHTTPError):
     """401/403 — bad credentials. Never retried on the same provider."""
-
-
-@dataclass
-class LLMResult:
-    content: str
-    provider: str
-    model: str
-    latency_ms: int
 
 
 class LLMProvider(Protocol):

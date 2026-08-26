@@ -1,6 +1,6 @@
 # PROGRESS
 
-**Current phase:** 12 — DONE (Render/Vercel were already serving the full app from Phase 03's auto-deploy by the time this phase started; the real work was adding the previously-missing LLM env vars, rotating `JWT_SECRET`, and pushing the one outstanding local commit, then verifying all of it live). **Next: Phase 13 (README + demo + verification).**
+**Current phase:** 13 — README + polish done; demo video still to record.
 **Scope:** Realistic delivery. Summed build ≈16h30–17h; realistic wall-clock 24–30h. Account-Team access cut (see master plan "What I'd build next"); tests written in-phase on a shared `conftest.py` (Phase 03). Cut order on slip: sentiment-trend chart → optional Users page → customer-edit polish. **Never cut:** profile page, interaction detail/edit/filters, Dockerfiles + full Compose.
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -175,11 +175,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Phase 13 — README + demo + verification
 
-- [ ] README: **demo credentials at the top** (3 roles) + "registration = empty csm" note
-- [ ] README: setup, architecture, decisions (from master plan), env table (incl BACKEND_URL), run commands
-- [ ] "What I'd build next" (Account Team) + namespace-global cache note + CSRF/role-from-DB/grace-window lines + "works without LLM keys" note
-- [ ] Architecture diagram / description
-- [ ] Final pass: every module works on the live URLs
+- [x] Demo video script (login per role, profile, customer CRUD, interaction list/filter/detail/edit, AI insight, failover, RBAC via owner reassign, dashboard, cache)
+- [x] README: **demo credentials at the top** (3 roles) + "registration = empty csm" note
+- [x] README: setup, architecture, decisions (from master plan), env table (incl BACKEND_URL), run commands
+- [x] "What I'd build next" (Account Team) + namespace-global cache note + CSRF/role-from-DB/grace-window lines + "works without LLM keys" note
+- [x] Architecture diagram / description (layering + ERD + auth/caching/AI prose, in README)
+- [x] **Gap-closing pass beyond the phase file's original scope:** found and fixed a fresh-clone blocker — `docker-compose.yml` required `backend/.env.example`, which didn't exist (only a root `.env.example` was tracked, and the backend's own `SettingsConfigDict(env_file=".env")` never read it anyway); moved it to `backend/.env.example` and split `BACKEND_URL` out to `frontend/.env.example` where it belongs. Removed `frontend/README.md` (unmodified create-next-app boilerplate) and 5 unused create-next-app SVGs. Fixed an unreachable-but-real 500 path (`regenerate_insight` on a null insight row now raises `NotFoundError`, not an unguarded `model_validate(None)`). Removed dead code: `fetchMe` thunk, `getAccessToken`, `LLMResult` dataclass. Added a delete confirmation step + `deleteError` surfacing on the customer detail page (was a single silent click before). Added a "New interaction" entry point on `/interactions` (previously only reachable from customer detail). Wired the two backend filters that had no UI control: customer `owner_id` (admin/manager only) and interaction `q` full-text search — both already existed on the repositories/slices, just unwired; deduplicated the owner-fetch into one `useUserOptions` hook shared by `CustomerForm` and the new filter.
+- [x] Final pass: every module works on the live URLs
 - [ ] Record + link video
 
 ---

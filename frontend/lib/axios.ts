@@ -21,10 +21,6 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
-export function getAccessToken(): string | null {
-  return accessToken;
-}
-
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.set("Authorization", `Bearer ${accessToken}`);

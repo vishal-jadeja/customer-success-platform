@@ -72,6 +72,7 @@ interface CustomersState {
   error: ApiError | null;
   detailStatus: Status;
   detailError: ApiError | null;
+  deleteError: ApiError | null;
   filters: CustomerListParams;
 }
 
@@ -85,6 +86,7 @@ const initialState: CustomersState = {
   error: null,
   detailStatus: "idle",
   detailError: null,
+  deleteError: null,
   filters: {},
 };
 
@@ -199,10 +201,16 @@ const customersSlice = createSlice({
         // the detail fetch already populated.
         state.entities[action.payload.id] = { ...state.entities[action.payload.id], ...action.payload };
       })
+      .addCase(deleteCustomer.pending, (state) => {
+        state.deleteError = null;
+      })
       .addCase(deleteCustomer.fulfilled, (state, action: PayloadAction<string>) => {
         delete state.entities[action.payload];
         state.ids = state.ids.filter((id) => id !== action.payload);
         state.total = Math.max(0, state.total - 1);
+      })
+      .addCase(deleteCustomer.rejected, (state, action) => {
+        state.deleteError = action.payload ?? null;
       });
   },
 });

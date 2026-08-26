@@ -27,6 +27,9 @@ dist/
 npm-debug.log*
 yarn-error.log*
 
+# --- Local-only notes ---
+docs/
+
 # --- Editor / OS ---
 .vscode/
 .idea/

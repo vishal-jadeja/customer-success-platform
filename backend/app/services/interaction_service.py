@@ -150,5 +150,7 @@ class InteractionService:
         # author rule used by update — any customer-scoped user may retry.
         interaction = self._get_or_404(interaction_id)
         CustomerService._assert_can_access(interaction.customer, user)
+        if interaction.insight is None:
+            raise NotFoundError("Insight not found for this interaction")
         InsightService(self.db).regenerate(interaction)
         return interaction

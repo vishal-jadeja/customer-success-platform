@@ -1,9 +1,10 @@
 # Full stack: Postgres + Redis + backend + frontend, wired by service name.
-# `cp backend/.env.example backend/.env` and `cp frontend/.env.example frontend/.env`
-# first (both git-ignored) — backend's env_file below reads real values (LLM
-# keys, JWT secret) from backend/.env; DATABASE_URL/REDIS_URL/COOKIE_SECURE
-# are overridden below to the in-compose service names regardless of what
-# backend/.env says for local (non-Docker) uvicorn.
+# `cp backend/.env.example backend/.env` first (git-ignored) — backend's
+# env_file below reads real values (LLM keys, JWT secret) from backend/.env;
+# DATABASE_URL/REDIS_URL/COOKIE_SECURE are overridden below to the in-compose
+# service names regardless of what backend/.env says for local (non-Docker)
+# uvicorn. The frontend service takes no env_file — BACKEND_URL is a build
+# arg only (see `frontend.build.args` below).
 services:
   postgres:
     image: postgres:16

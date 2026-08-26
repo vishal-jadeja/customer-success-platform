@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 
 import Pagination from "@/components/common/Pagination";
 import InteractionFilters from "@/components/interactions/InteractionFilters";
 import InteractionList from "@/components/interactions/InteractionList";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchInteractions, type InteractionListParams } from "@/store/slices/interactionsSlice";
+import { buttonClass } from "@/components/ui/Button";
 import PageContainer from "@/components/ui/PageContainer";
 import PageHeader from "@/components/ui/PageHeader";
 import Skeleton from "@/components/ui/Skeleton";
@@ -33,7 +36,15 @@ export default function InteractionsPage() {
 
   return (
     <PageContainer width="wide">
-      <PageHeader title="Interactions" />
+      <PageHeader
+        title="Interactions"
+        action={
+          <Link href="/interactions/new" className={buttonClass("primary")}>
+            <Plus className="h-4 w-4" />
+            New interaction
+          </Link>
+        }
+      />
 
       <InteractionFilters
         value={filters}

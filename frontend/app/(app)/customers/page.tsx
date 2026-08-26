@@ -8,6 +8,7 @@ import Filters, { FilterField } from "@/components/common/Filters";
 import Pagination from "@/components/common/Pagination";
 import CustomerTable from "@/components/customers/CustomerTable";
 import { customerSorts, customerStatuses } from "@/schemas/customer";
+import { useUserOptions } from "@/lib/useUserOptions";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchCustomers,
@@ -26,6 +27,7 @@ const EMPTY_FILTERS: CustomerListParams = {
   industry: "",
   min_health: undefined,
   max_health: undefined,
+  owner_id: "",
   sort: "created_at",
   order: "desc",
 };
@@ -35,6 +37,11 @@ export default function CustomersPage() {
   const { ids, entities, total, page, page_size, status, error } = useAppSelector(
     (state) => state.customers,
   );
+  const currentUser = useAppSelector((state) => state.auth.user);
+  // A csm's list is already owner-scoped to themself, so the filter is only
+  // meaningful — and only fetched — for admin/manager.
+  const canFilterByOwner = currentUser?.role === "admin" || currentUser?.role === "manager";
+  const owners = useUserOptions(canFilterByOwner);
   const [form, setForm] = useState<CustomerListParams>(EMPTY_FILTERS);
 
   function load(params: CustomerListParams) {
@@ -127,6 +134,21 @@ export default function CustomersPage() {
               }
             />
           </FilterField>
+          {canFilterByOwner && (
+            <FilterField label="Owner">
+              <Select
+                value={form.owner_id}
+                onChange={(e) => setForm({ ...form, owner_id: e.target.value })}
+              >
+                <option value="">Any</option>
+                {owners.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name} ({u.role})
+                  </option>
+                ))}
+              </Select>
+            </FilterField>
+          )}
           <FilterField label="Sort">
             <Select
               value={form.sort}

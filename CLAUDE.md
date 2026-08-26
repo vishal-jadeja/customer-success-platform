@@ -37,7 +37,7 @@ cd backend && alembic upgrade head
 cd backend && pytest
 cd backend && ruff check .
 ```
-Copy `.env.example` → `.env`; never commit `.env`.
+Copy `backend/.env.example` → `backend/.env` and `frontend/.env.example` → `frontend/.env`; never commit `.env`.
 
 ## Git
 - Commit only when asked. Short imperative subject; body only if the "why" isn't obvious.

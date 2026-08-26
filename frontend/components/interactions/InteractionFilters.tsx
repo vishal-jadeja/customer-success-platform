@@ -9,10 +9,8 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 
 /**
- * Mirrors backend filter params exactly: customer_id, type, sentiment,
+ * Mirrors backend filter params exactly: q, customer_id, type, sentiment,
  * date_from, date_to (see app/api/v1/routers/interactions.py::list_interactions).
- * `q` also exists on the backend but isn't in the Phase 09 plan's filter
- * list, so it's left out here.
  */
 export default function InteractionFilters({
   value,
@@ -33,6 +31,13 @@ export default function InteractionFilters({
       }}
     >
       <Filters>
+        <FilterField label="Search">
+          <Input
+            value={value.q ?? ""}
+            onChange={(e) => onChange({ ...value, q: e.target.value || undefined })}
+            placeholder="Title, notes…"
+          />
+        </FilterField>
         <FilterField label="Customer">
           <Select
             value={value.customer_id ?? ""}

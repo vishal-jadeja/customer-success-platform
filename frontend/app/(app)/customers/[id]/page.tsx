@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import InteractionList from "@/components/interactions/InteractionList";
@@ -29,6 +29,9 @@ export default function CustomerDetailPage() {
   const interactionIds = useAppSelector((state) => state.interactions.ids);
   const interactionEntities = useAppSelector((state) => state.interactions.entities);
   const interactionsStatus = useAppSelector((state) => state.interactions.status);
+  const deleteError = useAppSelector((state) => state.customers.deleteError);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchCustomer(id));
@@ -66,9 +69,17 @@ export default function CustomerDetailPage() {
   const canDelete = currentUser?.role === "admin";
 
   async function handleDelete() {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    setDeleting(true);
     const result = await dispatch(deleteCustomer(id));
+    setDeleting(false);
     if (deleteCustomer.fulfilled.match(result)) {
       router.push("/customers");
+    } else {
+      setConfirmingDelete(false);
     }
   }
 
@@ -91,14 +102,23 @@ export default function CustomerDetailPage() {
                 Edit
               </Link>
             )}
+            {canDelete && confirmingDelete && (
+              <Button variant="ghost" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                Cancel
+              </Button>
+            )}
             {canDelete && (
-              <Button variant="danger" onClick={handleDelete}>
-                Delete
+              <Button variant="danger" onClick={handleDelete} loading={deleting}>
+                {confirmingDelete ? "Confirm delete" : "Delete"}
               </Button>
             )}
           </div>
         }
       />
+
+      {deleteError && (
+        <p className="mb-4 text-sm text-bad">{deleteError.message ?? "Failed to delete customer."}</p>
+      )}
 
       <Card>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">

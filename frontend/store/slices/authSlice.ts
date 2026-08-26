@@ -85,18 +85,6 @@ export const refreshToken = createAsyncThunk<TokenOut, void, { rejectValue: ApiE
   },
 );
 
-export const fetchMe = createAsyncThunk<User, void, { rejectValue: ApiError }>(
-  "auth/fetchMe",
-  async (_, { rejectWithValue }) => {
-    try {
-      const { data } = await api.get<User>("/auth/me");
-      return data;
-    } catch (err) {
-      return rejectWithValue(extractApiError(err));
-    }
-  },
-);
-
 export interface ProfileUpdate {
   full_name?: string;
   current_password?: string;
@@ -162,9 +150,6 @@ const authSlice = createSlice({
       })
       .addCase(refreshToken.rejected, (state, action) => {
         state.error = action.payload ?? null;
-      })
-      .addCase(fetchMe.fulfilled, (state, action: PayloadAction<User>) => {
-        state.user = action.payload;
       })
       .addCase(updateMe.fulfilled, (state, action: PayloadAction<User>) => {
         state.user = action.payload;

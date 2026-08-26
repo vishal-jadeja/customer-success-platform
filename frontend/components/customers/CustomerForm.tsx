@@ -1,11 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
-import { api } from "@/lib/axios";
 import { fieldErrorsFromDetails, type ApiError } from "@/lib/errors";
+import { useUserOptions } from "@/lib/useUserOptions";
 import {
   customerFormSchema,
   customerStatuses,
@@ -13,16 +12,11 @@ import {
   type CustomerFormRawInput,
 } from "@/schemas/customer";
 import { useAppSelector } from "@/store/hooks";
-import type { User } from "@/store/slices/authSlice";
 import type { CustomerFormPayload } from "@/store/slices/customersSlice";
 import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-
-interface UsersPage {
-  items: User[];
-}
 
 export default function CustomerForm({
   defaultValues,
@@ -35,24 +29,7 @@ export default function CustomerForm({
 }) {
   const currentUser = useAppSelector((state) => state.auth.user);
   const canAssignOwner = currentUser?.role === "admin" || currentUser?.role === "manager";
-  const [owners, setOwners] = useState<User[]>([]);
-
-  // Owner selector data source: a plain GET, not a Redux slice — the
-  // dropdown is the only consumer this phase (Phase 09 has no usersSlice in
-  // its file list; the admin Users page is an optional Phase 10 item).
-  useEffect(() => {
-    if (!canAssignOwner) return;
-    let cancelled = false;
-    api
-      .get<UsersPage>("/users", { params: { page_size: 100 } })
-      .then(({ data }) => {
-        if (!cancelled) setOwners(data.items);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [canAssignOwner]);
+  const owners = useUserOptions(canAssignOwner);
 
   const {
     register,
